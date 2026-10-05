@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#12372b">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Volley Note">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./icon.svg">
+  <link rel="stylesheet" href="./style.css">
+  <title>Volley Note</title>
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand"><div class="brand-icon">V</div><div><strong>Volley Note</strong><small>試合記録 · Lv.1</small></div></div>
+    <div class="offline-state"><span class="status-dot"></span><span id="network-label">端末に保存</span></div>
+  </header>
+
+  <main>
+    <section class="scoreboard" aria-label="現在のスコア">
+      <div class="score-team"><span id="team-label-a">Aチーム</span><strong id="score-a">0</strong></div>
+      <div class="set-current"><small>SET</small><strong id="set-no">1</strong></div>
+      <div class="score-team"><span id="team-label-b">Bチーム</span><strong id="score-b">0</strong></div>
+    </section>
+
+    <section class="lineups">
+      <div class="section-heading"><div><span class="step">01</span><h1>選手を選ぶ</h1></div><div><button class="text-button" data-action="team-names">チーム名</button><button class="text-button" data-action="edit-roster">選手名</button></div></div>
+      <div class="team-lineups" id="lineups"></div>
+    </section>
+
+    <section class="rally-section">
+      <div class="section-heading"><div><span class="step">02</span><h2>Rally <span id="rally-no">001</span></h2></div><span id="current-selection" class="selection-label">選手を選択してください</span></div>
+      <div id="spike-result" class="spike-result" hidden></div>
+      <div class="play-grid" id="play-buttons"></div>
+      <div class="rally-controls">
+        <button class="button button-quiet" data-action="undo-play">↶ 1プレー戻る</button>
+        <button class="button button-quiet" data-action="undo-rally">↶ 1ラリー戻る</button>
+      </div>
+      <div class="point-controls">
+        <button class="button point-a" data-action="award" data-team="A">Aチームに得点</button>
+        <button class="button point-b" data-action="award" data-team="B">Bチームに得点</button>
+      </div>
+      <div class="rally-feed" id="rally-feed" aria-live="polite"></div>
+    </section>
+
+    <section class="match-controls">
+      <div class="section-heading"><div><span class="step">03</span><h2>試合操作</h2></div></div>
+      <div class="operation-grid">
+        <button class="button operation" data-action="timeout" data-team="A">⏱ A タイムアウト</button>
+        <button class="button operation" data-action="timeout" data-team="B">⏱ B タイムアウト</button>
+        <button class="button operation" data-action="substitution">選手交代</button>
+        <button class="button operation" data-action="end-set">セット終了</button>
+      </div>
+      <div class="operation-grid extra-operations">
+        <button class="button operation" data-action="match-info">試合名・メモ</button>
+        <button class="button operation" data-action="save-match">試合を保存</button>
+        <button class="button operation" data-action="finish-match">試合終了</button>
+        <button class="button operation" data-action="new-match">新しい試合</button>
+      </div>
+      <div class="match-meta"><strong id="match-name-display">試合</strong><span id="finished-state">試合中</span><p id="match-note-display">試合メモはまだありません。</p></div>
+      <button class="button button-quiet" data-action="export">JSONで保存</button>
+    </section>
+
+    <section class="stats-section">
+      <div class="section-heading"><div><span class="step">04</span><h2>選手成績</h2></div></div>
+      <div class="table-scroll"><table><thead><tr><th>チーム</th><th>選手</th><th>スパイク試行</th><th>得点</th><th>ミス</th><th>決定率</th><th>攻撃効率</th><th>サーブ効果率</th><th>ブロック</th><th>レシーブ返球率</th></tr></thead><tbody id="stats-body"></tbody></table></div>
+      <p class="formula">決定率＝スパイク得点÷試行数 · 攻撃効率＝（得点−ミス）÷試行数 · サーブ効果率＝（エース×100＋効果×25−ミス×25）÷サーブ数 · 返球率＝成功÷レシーブ数</p>
+    </section>
+
+    <details class="history-section"><summary>試合履歴 <span id="history-count">0</span></summary><div id="history-list"></div></details>
+    <details class="history-section"><summary>保存した試合 <span id="saved-count">0</span></summary><div id="saved-matches"></div></details>
+    <details class="history-section"><summary>ラリー履歴を修正</summary><button class="button button-quiet" data-action="edit-rally">得点チームを修正</button></details>
+    <div class="bottom-actions"><button class="text-button" data-action="reset">試合をリセット</button><span id="save-state">この端末に保存済み</span></div>
+  </main>
+
+  <dialog id="confirm-dialog"><form method="dialog"><h2 id="confirm-title">確認</h2><p id="confirm-message"></p><div class="dialog-actions"><button class="button button-quiet" value="cancel">キャンセル</button><button class="button button-primary" id="confirm-accept" value="confirm">実行する</button></div></form></dialog>
+  <dialog id="form-dialog"><form id="form-content" method="dialog"></form></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="./app.js"></script>
+</body>
+</html>

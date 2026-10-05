@@ -1,0 +1,16 @@
+{
+  "id": "./",
+  "name": "Volley Note 試合記録",
+  "short_name": "Volley Note",
+  "description": "バレーボールの試合をオフラインで記録するアプリ",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f2f5f1",
+  "theme_color": "#12372b",
+  "icons": [
+    {"src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable"}
+  ]
+}
