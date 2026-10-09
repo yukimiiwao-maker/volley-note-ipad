@@ -1,4 +1,4 @@
-const CACHE_NAME = "volley-note-offline-v2";
+const CACHE_NAME = "volley-note-offline-v4";
 const APP_FILES = ["./", "./index.html", "./style.css", "./app.js", "./manifest.webmanifest", "./icon.svg"];
 
 self.addEventListener("install", (event) => {

@@ -27,8 +27,10 @@
     </section>
 
     <section class="lineups">
-      <div class="section-heading"><div><span class="step">01</span><h1>選手を選ぶ</h1></div><div><button class="text-button" data-action="team-names">チーム名</button><button class="text-button" data-action="edit-roster">選手名</button></div></div>
+      <div class="section-heading"><div><span class="step">01</span><h1>選手を選ぶ</h1></div><div><button class="text-button" data-action="team-names">チーム名</button><button class="text-button" data-action="edit-roster">選手登録・ポジション</button></div></div>
       <div class="team-lineups" id="lineups"></div>
+      <details class="roster-management" id="roster-management"><summary>選手登録・ポジション設定</summary><div id="roster-editor" class="team-lineups"></div></details>
+      <details class="roster-management"><summary>保存したチーム</summary><p class="formula">チーム名・選手名・ポジションをこの端末に保存して、別の試合でも呼び出せます。</p><div id="team-templates" class="team-lineups"></div></details>
     </section>
 
     <section class="rally-section">

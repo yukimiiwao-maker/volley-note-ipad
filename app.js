@@ -1,6 +1,9 @@
 const GAME_KEY = "volley-note-game-v1";
 const MATCHES_KEY = "volley-note-matches-v2";
-const POSITIONS = ["OH①", "OH②", "MB①", "MB②", "OP", "S", "L"];
+const TEAMS_KEY = "volley-note-teams-v1";
+const POSITIONS = ["OH", "MB", "OP", "S", "L"];
+const LEGACY_POSITIONS = ["OH①", "OH②", "MB①", "MB②", "OP", "S", "L"];
+const DEFAULT_ROLES = ["OH", "OH", "MB", "MB", "OP", "S", "L"];
 const PLAYS = ["サーブ", "レシーブ", "トス", "スパイク", "ブロック", "ミス"];
 const clone = (value) => JSON.parse(JSON.stringify(value));
 const $ = (id) => document.getElementById(id);
@@ -9,7 +12,7 @@ function createId() { return window.crypto?.randomUUID?.() || `vn-${Date.now()}-
 function freshGame() {
   return {
     id: createId(), matchName: "試合", matchNote: "", teamNames: { A: "Aチーム", B: "Bチーム" },
-    teams: Object.fromEntries(["A", "B"].map((team) => [team, Object.fromEntries(POSITIONS.map((p) => [p, `${p} 選手`]))])),
+    teams: Object.fromEntries(["A", "B"].map((team) => [team, LEGACY_POSITIONS.map((slot, index) => ({ id: `${team}-default-${index + 1}`, name: `${slot} 選手`, position: DEFAULT_ROLES[index] }))])),
     scores: { A: 0, B: 0 }, setNo: 1, rallyNo: 1, setScores: [], selected: null, spikePending: null,
     pending: [], rallies: [], events: [], finished: false, finishedAt: null,
   };
@@ -19,15 +22,38 @@ function readJson(key, fallback) {
   try { const value = JSON.parse(localStorage.getItem(key)); return value ?? fallback; }
   catch (error) { console.warn(`${key}を読み込めませんでした`, error); return fallback; }
 }
+function normalizePosition(position) {
+  const value = String(position || "OH");
+  if (value.startsWith("OH")) return "OH";
+  if (value.startsWith("MB")) return "MB";
+  return POSITIONS.includes(value) ? value : "OH";
+}
 function normalizeGame(raw = {}) {
   const value = { ...freshGame(), ...raw };
   value.teamNames = { A: "Aチーム", B: "Bチーム", ...(raw.teamNames || {}) };
   value.setScores ||= raw.sets || [];
-  const normalizePlay = (p) => { if (!p.player && p.name) p.player = p.name; return p; };
+  value.teams = Object.fromEntries(["A", "B"].map((team) => {
+    const roster = raw.teams?.[team] ?? value.teams[team];
+    if (Array.isArray(roster)) return [team, roster.map((p, index) => ({ id: p.id || `${team}-migrated-${index}-${Date.now()}`, name: String(p.name || "選手"), position: normalizePosition(p.position) }))];
+    return [team, Object.entries(roster || {}).map(([slot, name], index) => ({ id: `${team}-legacy-${index + 1}`, name: String(name), position: normalizePosition(slot) }))];
+  }));
+  const playerIdFor = (team, position, name) => value.teams[team]?.find((p) => p.position === position && p.name === name)?.id;
+  const normalizePlay = (p) => {
+    if (!p.player && p.name) p.player = p.name;
+    p.position = normalizePosition(p.position);
+    if (!p.player_id) p.player_id = playerIdFor(p.team, p.position, p.player);
+    return p;
+  };
   value.pending = (value.pending || []).map(normalizePlay);
   value.rallies = (value.rallies || []).map((r) => ({ ...r, plays: (r.plays || []).map(normalizePlay) }));
-  if (value.selected?.name && !value.selected.player) value.selected.player = value.selected.name;
-  if (value.spikePending?.name && !value.spikePending.player) value.spikePending.player = value.spikePending.name;
+  for (const key of ["selected", "spikePending"]) {
+    const player = value[key];
+    if (!player) continue;
+    player.position = normalizePosition(player.position);
+    player.player ||= player.name;
+    player.name ||= player.player;
+    player.player_id ||= playerIdFor(player.team, player.position, player.name);
+  }
   return value;
 }
 let game = normalizeGame(readJson(GAME_KEY, {}));
@@ -37,6 +63,8 @@ game.events ||= [];
 game.pending ||= [];
 let matches = readJson(MATCHES_KEY, []);
 if (!Array.isArray(matches)) matches = [];
+let teamTemplates = readJson(TEAMS_KEY, []);
+if (!Array.isArray(teamTemplates)) teamTemplates = [];
 let offlineReady = false;
 let toastTimer;
 let confirmAction = null;
@@ -57,6 +85,7 @@ function saveGame() {
   catch (error) { $("save-state").textContent = "保存できませんでした"; showToast("端末に保存できませんでした。空き容量を確認してください。"); }
 }
 function saveMatches() { localStorage.setItem(MATCHES_KEY, JSON.stringify(matches)); }
+function saveTeamTemplates() { localStorage.setItem(TEAMS_KEY, JSON.stringify(teamTemplates)); }
 function persist(message = "") { saveGame(); render(); if (message) showToast(message); }
 function showToast(message) {
   const el = $("toast"); el.textContent = message; el.classList.add("show"); clearTimeout(toastTimer);
@@ -78,8 +107,11 @@ formContent.addEventListener("submit", (event) => {
 });
 formContent.addEventListener("click", (event) => { if (event.target.closest("[data-close-form]")) { formAction = null; formDialog.close(); } });
 
-function playerEntry(team, position) { return { team, position, name: game.teams[team][position] }; }
-function spikeRecord(player, outcome) { return { team: player.team, position: player.position, player: player.name, play: "スパイク", outcome }; }
+function playerEntry(team, playerId) {
+  const player = game.teams[team].find((p) => p.id === playerId);
+  return player ? { team, player_id: player.id, position: player.position, name: player.name } : null;
+}
+function spikeRecord(player, outcome) { return { team: player.team, player_id: player.player_id, position: player.position, player: player.name, play: "スパイク", outcome }; }
 function unresolved(list, play) { return [...list].reverse().find((p) => p.play === play && !p.outcome); }
 function resolveRally(winner) {
   if (game.spikePending) {
@@ -102,11 +134,12 @@ function resolveRally(winner) {
   game.rallies.push({ number: game.rallyNo, set: game.setNo, winner, plays: clone(game.pending) });
   game.scores[winner] += 1; game.pending = []; game.rallyNo += 1; game.selected = null;
 }
-function selectPlayer(team, position) {
+function selectPlayer(team, playerId) {
   if (game.finished) return;
+  const player = playerEntry(team, playerId); if (!player) return;
   if (game.spikePending) { game.pending.push(spikeRecord(game.spikePending, "継続")); game.spikePending = null; }
   if (game.pending.at(-1)?.play === "ブロック") game.pending.at(-1).outcome = "継続";
-  game.selected = playerEntry(team, position); persist();
+  game.selected = player; persist();
 }
 function recordPlay(play) {
   if (game.finished) return;
@@ -117,7 +150,8 @@ function recordPlay(play) {
       resolveRally(hitter.team === "A" ? "B" : "A"); persist(`${hitter.name}のスパイクミス。相手チームに得点`); return;
     }
     const target = game.pending.at(-1);
-    if (target && target.play !== "ミス" && !target.outcome && (!player || (target.team === player.team && target.position === player.position && target.player === player.name))) {
+    const samePlayer = player && (target?.player_id && player.player_id ? target.player_id === player.player_id : target?.team === player.team && target?.position === player.position && target?.player === player.name);
+    if (target && target.play !== "ミス" && !target.outcome && (!player || samePlayer)) {
       target.outcome = target.play === "レシーブ" ? "失敗" : "ミス";
       const loser = target.team; game.selected = null; resolveRally(loser === "A" ? "B" : "A"); persist(`${target.player}の${target.play}ミス。相手チームに得点`); return;
     }
@@ -129,7 +163,7 @@ function recordPlay(play) {
   const serve = unresolved(game.pending, "サーブ");
   if (serve && !["レシーブ", "ミス"].includes(play)) serve.outcome = "効果";
   if (play === "スパイク") { game.spikePending = { ...player }; game.selected = null; persist(); return; }
-  game.pending.push({ team: player.team, position: player.position, player: player.name, play }); game.selected = null;
+  game.pending.push({ team: player.team, player_id: player.player_id, position: player.position, player: player.name, play }); game.selected = null;
   if (play === "ミス") {
     const unresolvedServe = unresolved(game.pending, "サーブ");
     if (unresolvedServe && unresolvedServe.team === player.team && !unresolvedServe.outcome) unresolvedServe.outcome = "ミス";
@@ -158,10 +192,43 @@ function openTeamEditor() {
   });
 }
 function openRosterEditor() {
-  const options = ["A", "B"].flatMap((team) => POSITIONS.map((position) => `<option value="${team}|${position}">${esc(teamName(team))} · ${position} · ${esc(game.teams[team][position])}</option>`)).join("");
-  openForm("選手名を編集", `<label>ポジション</label><select name="slot">${options}</select><label>選手名</label><input name="name" required maxlength="24" autocomplete="off">`, (data) => {
-    const [team, position] = data.get("slot").split("|"); game.teams[team][position] = String(data.get("name")).trim(); persist("選手名を変更しました");
+  const panel = $("roster-management");
+  panel.open = true;
+  panel.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+function addPlayer(team) {
+  const options = POSITIONS.map((position) => '<option>' + position + '</option>').join("");
+  openForm(teamName(team) + "に選手を追加", '<label>選手名</label><input name="name" required maxlength="24" autocomplete="off"><label>ポジション</label><select name="position">' + options + '</select>', (data) => {
+    const name = String(data.get("name")).trim();
+    if (!name) return;
+    game.teams[team].push({ id: createId(), name, position: String(data.get("position")) });
+    persist(teamName(team) + "に選手を追加しました");
   });
+}
+function saveTeamTemplate(team) {
+  openForm(teamName(team) + "を保存", '<label>保存名</label><input name="title" required maxlength="40" value="' + esc(teamName(team)) + '">', (data) => {
+    const title = String(data.get("title")).trim();
+    if (!title) return;
+    teamTemplates.push({ id: createId(), title, teamName: teamName(team), players: clone(game.teams[team]) });
+    saveTeamTemplates(); renderTeamTemplates(); showToast("チームを保存しました");
+  });
+}
+function loadTeamTemplate(templateId, team) {
+  const item = teamTemplates.find((entry) => entry.id === templateId);
+  if (!item) return;
+  const previous = game.teams[team];
+  game.teams[team] = item.players.map((player) => {
+    const existing = previous.find((candidate) => candidate.name === player.name && candidate.position === player.position);
+    return { ...clone(player), id: existing?.id || createId() };
+  });
+  game.teamNames[team] = item.teamName || item.title;
+  if (game.selected?.team === team) game.selected = null;
+  if (game.spikePending?.team === team) game.spikePending = null;
+  persist(teamName(team) + "に保存チームを読み込みました");
+}
+function renderTeamTemplates() {
+  const select = (team) => '<select aria-label="保存チーム" id="team-template-' + team + '"><option value="">保存チームを選択</option>' + teamTemplates.map((item) => '<option value="' + esc(item.id) + '">' + esc(item.title) + '</option>').join("") + '</select><button class="button button-quiet" data-action="load-team" data-team="' + team + '">このチームに読み込む</button>';
+  $("team-templates").innerHTML = ["A", "B"].map((team) => '<article class="team-card"><h3>' + esc(teamName(team)) + '</h3><button class="button button-primary" data-action="save-team" data-team="' + team + '">現在のチームを保存</button><div class="template-load">' + select(team) + '</div></article>').join("") + (teamTemplates.length ? '<div class="template-list">' + [...teamTemplates].reverse().map((item) => '<div><span>' + esc(item.title) + ' · ' + esc(item.players.length) + '人</span><button class="button button-error" data-action="delete-team-template" data-id="' + esc(item.id) + '">削除</button></div>').join("") + '</div>' : '<p class="empty-feed">保存したチームはありません。</p>');
 }
 function openMatchSettings() {
   openForm("試合情報", `<label>試合名</label><input name="matchName" maxlength="60" value="${esc(game.matchName)}"><label>試合メモ</label><textarea name="matchNote" rows="5" maxlength="1500">${esc(game.matchNote)}</textarea>`, (data) => {
@@ -169,10 +236,19 @@ function openMatchSettings() {
   });
 }
 function openSubstitution() {
-  const teamOptions = ["A", "B"].map((t) => `<option value="${t}">${esc(teamName(t))}</option>`).join("");
-  openForm("選手交代", `<label>チーム</label><select name="team">${teamOptions}</select><label>ポジション</label><select name="position">${POSITIONS.map((p) => `<option>${p}</option>`).join("")}</select><label>入る選手</label><input name="name" required maxlength="24">`, (data) => {
-    const team = data.get("team"), position = data.get("position"), name = String(data.get("name")).trim();
-    const old = game.teams[team][position]; game.teams[team][position] = name; eventRecord("選手交代", team, `${position}: ${old} → ${name}`); persist(`${teamName(team)}の選手を交代しました`);
+  const outgoing = ["A", "B"].flatMap((team) => game.teams[team].map((p) => '<option value="' + team + '|' + p.id + '">' + esc(teamName(team)) + " · " + esc(p.position) + " " + esc(p.name) + "</option>")).join("");
+  const positions = POSITIONS.map((p) => "<option>" + p + "</option>").join("");
+  const fields = '<label>交代する選手</label><select name="outgoing">' + outgoing + '</select><label>入る選手</label><input name="name" required maxlength="24" autocomplete="off"><label>ポジション</label><select name="position">' + positions + "</select>";
+  openForm("選手交代", fields, (data) => {
+    const [team, outgoingId] = String(data.get("outgoing")).split("|");
+    const outgoingPlayer = game.teams[team].find((p) => p.id === outgoingId);
+    const name = String(data.get("name")).trim();
+    if (!name || !outgoingPlayer) return;
+    game.teams[team] = game.teams[team].filter((p) => p.id !== outgoingId);
+    const position = data.get("position");
+    game.teams[team].push({ id: createId(), name, position });
+    eventRecord("選手交代", team, outgoingPlayer.position + " " + outgoingPlayer.name + " → " + position + " " + name);
+    persist(teamName(team) + "の選手を交代しました");
   });
 }
 function endSet(winner) {
@@ -184,7 +260,11 @@ function openSetEnd() {
   openForm("セット終了", `<label>セットを取ったチーム</label><select name="winner"><option value="A">${esc(teamName("A"))}</option><option value="B">${esc(teamName("B"))}</option></select>`, (data) => endSet(data.get("winner")), "セットを終了");
 }
 
-function hasData() { return game.rallies.length || game.pending.length || game.events.length || game.matchNote || game.finished || game.scores.A || game.scores.B || game.teamNames.A !== "Aチーム" || game.teamNames.B !== "Bチーム"; }
+function hasData() {
+  const defaults = freshGame().teams;
+  const rosterChanged = ["A", "B"].some((team) => JSON.stringify(game.teams[team].map((p) => [p.name, p.position])) !== JSON.stringify(defaults[team].map((p) => [p.name, p.position])));
+  return game.rallies.length || game.pending.length || game.events.length || game.matchNote || game.finished || game.scores.A || game.scores.B || game.teamNames.A !== "Aチーム" || game.teamNames.B !== "Bチーム" || rosterChanged;
+}
 function archiveCurrent() {
   const item = { id: game.id || createId(), title: game.matchName || `${teamName("A")} vs ${teamName("B")}`, savedAt: new Date().toISOString(), game: clone(game) };
   item.game.id = item.id; matches = matches.filter((m) => m.id !== item.id); matches.push(item); game.id = item.id; saveMatches(); saveGame(); render(); return item;
@@ -204,12 +284,24 @@ function openSavedMatch(id) {
 function deleteSavedMatch(id) { matches = matches.filter((m) => m.id !== id); saveMatches(); renderArchive(); showToast("保存した試合を削除しました"); }
 
 function renderLineups() {
-  $("lineups").innerHTML = ["A", "B"].map((team) => `<article class="team-card" data-team="${team}"><h3>${esc(teamName(team))}</h3><div class="player-grid">${POSITIONS.map((position) => {
-    const name = game.teams[team][position], active = game.selected?.team === team && game.selected.position === position;
-    return `<button class="player-choice ${active ? "selected" : ""}" data-action="select" data-team="${team}" data-position="${position}" ${game.finished ? "disabled" : ""}><span class="position">${position}</span><span class="player-name">${esc(name)}</span></button>`;
-  }).join("")}</div></article>`).join("");
+  $("lineups").innerHTML = ["A", "B"].map((team) => {
+    const buttons = game.teams[team].map((player) => {
+      const active = game.selected?.player_id === player.id;
+      return '<button class="player-choice ' + (active ? "selected" : "") + '" data-action="select" data-team="' + team + '" data-player-id="' + esc(player.id) + '" ' + (game.finished ? "disabled" : "") + '><span class="position">' + esc(player.position) + '</span><span class="player-name">' + esc(player.name) + "</span></button>";
+    }).join("");
+    return '<article class="team-card" data-team="' + team + '"><h3>' + esc(teamName(team)) + '</h3><div class="player-grid">' + buttons + "</div></article>";
+  }).join("");
   $("score-a").textContent = game.scores.A; $("score-b").textContent = game.scores.B; $("set-no").textContent = game.setNo; $("rally-no").textContent = String(game.rallyNo).padStart(3, "0");
   $("team-label-a").textContent = teamName("A"); $("team-label-b").textContent = teamName("B");
+}
+function renderRosterEditor() {
+  $("roster-editor").innerHTML = ["A", "B"].map((team) => {
+    const rows = game.teams[team].map((player) => {
+      const options = POSITIONS.map((position) => '<option ' + (position === player.position ? "selected" : "") + ">" + position + "</option>").join("");
+      return '<form class="roster-row" data-player-edit-form data-team="' + team + '" data-player-id="' + esc(player.id) + '"><input name="name" aria-label="選手名" value="' + esc(player.name) + '" maxlength="24" required><select name="position" aria-label="ポジション">' + options + '</select><button class="button button-quiet" type="submit">保存</button><button class="button button-error" type="button" data-action="remove-player" data-team="' + team + '" data-player-id="' + esc(player.id) + '">削除</button></form>';
+    }).join("");
+    return '<article class="team-card"><h3>' + esc(teamName(team)) + '</h3>' + rows + '<button class="button button-primary" data-action="add-player" data-team="' + team + '">＋ 選手を追加</button></article>';
+  }).join("");
 }
 function renderRally() {
   $("current-selection").textContent = game.spikePending ? `${game.spikePending.name} · スパイク後の処理を選択` : game.selected ? `選択中：${teamName(game.selected.team)} · ${game.selected.position} ${game.selected.name}` : "選手を選択してください";
@@ -228,11 +320,14 @@ function renderRally() {
 function allPlays(g = game) { return [...(g.rallies || []).flatMap((r) => r.plays || []), ...(g.pending || [])]; }
 function renderStats(target = "stats-body", g = game) {
   const plays = allPlays(g), names = g.teamNames || { A: "Aチーム", B: "Bチーム" }, athletes = new Map();
-  ["A", "B"].forEach((team) => POSITIONS.forEach((position) => { const name = g.teams[team][position]; athletes.set(`${team}|${position}|${name}`, { team, position, name }); }));
-  plays.filter((p) => ["スパイク", "サーブ", "レシーブ", "ブロック"].includes(p.play)).forEach((p) => athletes.set(`${p.team}|${p.position}|${p.player}`, { team: p.team, position: p.position, name: p.player }));
+  ["A", "B"].forEach((team) => g.teams[team].forEach((player) => athletes.set(player.id, { id: player.id, team, position: player.position, name: player.name })));
+  plays.filter((p) => ["スパイク", "サーブ", "レシーブ", "ブロック"].includes(p.play)).forEach((p) => {
+    const id = p.player_id || (p.team + "|" + p.position + "|" + p.player);
+    if (!athletes.has(id)) athletes.set(id, { id, team: p.team, position: p.position, name: p.player });
+  });
   const rows = [...athletes.values()].sort((a, b) => a.team.localeCompare(b.team) || POSITIONS.indexOf(a.position) - POSITIONS.indexOf(b.position));
   $(target).innerHTML = rows.map((a) => {
-    const mine = plays.filter((p) => p.team === a.team && p.position === a.position && p.player === a.name);
+    const mine = plays.filter((p) => p.player_id ? p.player_id === a.id : p.team === a.team && p.position === a.position && p.player === a.name);
     const attacks = mine.filter((p) => p.play === "スパイク" && ["得点", "継続", "ミス"].includes(p.outcome));
     const kills = attacks.filter((p) => p.outcome === "得点").length, errors = attacks.filter((p) => p.outcome === "ミス").length;
     const serves = mine.filter((p) => p.play === "サーブ" && ["エース", "効果", "ミス"].includes(p.outcome));
@@ -261,14 +356,14 @@ function renderArchive() {
   matches.forEach((item) => { const id = `stats-${item.id}`; if ($(id)) renderStats(id, item.game); });
 }
 function render() {
-  renderLineups(); renderRally(); renderStats(); renderHistory(); renderArchive();
+  renderLineups(); renderRosterEditor(); renderTeamTemplates(); renderRally(); renderStats(); renderHistory(); renderArchive();
   $("network-label").textContent = offlineReady ? (navigator.onLine ? "オフライン利用の準備OK" : "オフライン · 端末に保存") : "オフライン利用を準備中";
 }
 
 document.addEventListener("click", (event) => {
   const b = event.target.closest("button[data-action]"); if (!b || b.disabled) return;
   const { action } = b.dataset;
-  if (action === "select") selectPlayer(b.dataset.team, b.dataset.position);
+  if (action === "select") selectPlayer(b.dataset.team, b.dataset.playerId);
   else if (action === "play") recordPlay(b.dataset.play);
   else if (action === "undo-play") undoPlay();
   else if (action === "undo-rally") showConfirm("1ラリー戻す", "直前のラリーと得点を取り消しますか？", undoRally, "取り消す");
@@ -277,6 +372,21 @@ document.addEventListener("click", (event) => {
   else if (action === "substitution") openSubstitution();
   else if (action === "end-set") openSetEnd();
   else if (action === "edit-roster") openRosterEditor();
+  else if (action === "add-player") addPlayer(b.dataset.team);
+  else if (action === "remove-player") showConfirm("選手を削除", "この選手を名簿から削除しますか？過去の記録は残ります。", () => {
+    const { team, playerId } = b.dataset;
+    game.teams[team] = game.teams[team].filter((p) => p.id !== playerId);
+    if (game.selected?.player_id === playerId) game.selected = null;
+    if (game.spikePending?.player_id === playerId) game.spikePending = null;
+    persist("選手を削除しました");
+  }, "削除");
+  else if (action === "save-team") saveTeamTemplate(b.dataset.team);
+  else if (action === "load-team") {
+    const select = $("team-template-" + b.dataset.team);
+    if (select?.value) showConfirm("保存チームを読み込む", teamName(b.dataset.team) + "の現在の名簿を保存したチームで置き換えます。過去のプレー記録は残ります。", () => loadTeamTemplate(select.value, b.dataset.team), "読み込む");
+    else showToast("読み込む保存チームを選んでください");
+  }
+  else if (action === "delete-team-template") showConfirm("保存チームを削除", "「" + (teamTemplates.find((item) => item.id === b.dataset.id)?.title || "") + "」を削除しますか？", () => { teamTemplates = teamTemplates.filter((item) => item.id !== b.dataset.id); saveTeamTemplates(); renderTeamTemplates(); showToast("保存チームを削除しました"); }, "削除");
   else if (action === "team-names") openTeamEditor();
   else if (action === "match-info") openMatchSettings();
   else if (action === "finish-match") showConfirm("試合を終了", "試合を終了して、この端末の保存試合に追加しますか？", finishMatch, "試合を終了");
@@ -287,6 +397,23 @@ document.addEventListener("click", (event) => {
   else if (action === "reset") showConfirm("試合をリセット", "現在の試合を消去して初期状態に戻します。必要な場合は先に保存してください。", () => { game = freshGame(); persist("新しい試合を始めました"); }, "リセット");
   else if (action === "export") exportGame();
   else if (action === "edit-rally") openRallyEditor();
+});
+
+document.addEventListener("submit", (event) => {
+  const form = event.target.closest("[data-player-edit-form]");
+  if (!form) return;
+  event.preventDefault();
+  const { team, playerId } = form.dataset;
+  const player = game.teams[team].find((p) => p.id === playerId);
+  if (!player) return;
+  const data = new FormData(form), name = String(data.get("name")).trim();
+  if (!name) return;
+  player.name = name;
+  player.position = String(data.get("position"));
+  for (const key of ["selected", "spikePending"]) {
+    if (game[key]?.player_id === playerId) { game[key].name = name; game[key].player = name; game[key].position = player.position; }
+  }
+  persist("選手情報を保存しました");
 });
 
 function exportGame() {
