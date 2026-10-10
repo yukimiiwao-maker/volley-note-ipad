@@ -1,10 +1,13 @@
 const GAME_KEY = "volley-note-game-v1";
 const MATCHES_KEY = "volley-note-matches-v2";
 const TEAMS_KEY = "volley-note-teams-v1";
+const SV_TEAMS_SEEDED_KEY = "volley-note-sv-teams-seeded-v1";
+const FOLDERS_KEY = "volley-note-folders-v1";
 const POSITIONS = ["OH", "MB", "OP", "S", "L"];
 const LEGACY_POSITIONS = ["OH①", "OH②", "MB①", "MB②", "OP", "S", "L"];
 const DEFAULT_ROLES = ["OH", "OH", "MB", "MB", "OP", "S", "L"];
 const PLAYS = ["サーブ", "レシーブ", "トス", "スパイク", "ブロック", "ミス"];
+const SV_LEAGUE_CATALOG = [{"id":"sv-2026-27-voreas","title":"ヴォレアス北海道（2026-27）","team_name":"ヴォレアス北海道","players":[["中道 優斗","OH"],["国京 大海","S"],["松下 彪雅","MB"],["井上 仁","MB"],["山岸 隼","S"],["ゾロトゥーヒン","OP"],["日車 恭輔","OH"],["池田 幸太","OH"],["タンメアル","OH"],["外崎 航平","L"],["荒尾 怜音","L"],["ダール","OP"],["山田 航旗","MB"],["西 宏志朗","L"],["浜田 翔太","S"],["三好 佳介","MB"],["タンメマー","MB"]]},{"id":"sv-2026-27-yellow-stars","title":"北海道イエロースターズ（2026-27）","team_name":"北海道イエロースターズ","players":[["新山 駿","L"],["中谷 薫","MB"],["住友 厚介","MB"],["渡辺 俊介","L"],["ファステランド","MB"],["久保下 航平","S"],["出口 大聖","MB"],["吉村 颯太","OH"],["山田 滉太","OH"],["池田 颯太","OP"],["重留 日向","OH"],["中野 竜","OH"],["澤口 将太郎","OH"],["本澤 凌斗","S"],["早坂 心之介","S"],["張 育陞","OP"],["都築 仁","OP"],["前田 幸久","L"],["栁澤 賢","MB"],["堀内 大志","OH"],["島 波輝","MB"],["クヴァーレン","OH"]]},{"id":"sv-2026-27-tokyo-great-bears","title":"東京グレートベアーズ（2026-27）","team_name":"東京グレートベアーズ","players":[["伊藤 吏玖","MB"],["深津 旭弘","S"],["コザメルニク","MB"],["クレク","OP"],["柳田 将洋","OH"],["古賀 太一郎","L"],["後藤 陸翔","OH"],["村山 豪","MB"],["大竹 壱青","MB"],["ヴィセンティン","OH"],["大前 隆貴","L"],["川野 琢磨","OH"],["黒川 竜星","S"],["近藤 蘭丸","S"],["髙島 優作","OP"]]},{"id":"sv-2026-27-shinshu-matsumoto","title":"信州松本トライデンツ（2026-27）","team_name":"信州松本トライデンツ","players":[["松本 慶彦","MB"],["ラマ","OH"],["酒井 秀輔","OP"],["千葉 貫世","MB"],["難波 宏治","L"],["赤星 伸城","S"],["ジョン","OP"],["藤原 奨太","OH"],["安原 大","MB"],["工藤 有史","OH"],["星名 勇佑","S"],["松尾 敬介","L"],["スミス","MB"],["伊藤 洸貴","S"],["佐藤 隆哉","OH"],["一条 太嘉丸","OH"],["マックレヴィン","MB"],["岸川 蓮樹","OP"],["安部 翔大","MB"]]},{"id":"sv-2026-27-toray-shizuoka","title":"東レアローズ静岡（2026-27）","team_name":"東レアローズ静岡","players":[["難波 尭弘","MB"],["新 貴裕","S"],["ヴァルガ","OH"],["ガルシア","OP"],["楠本 岳","OH"],["デアルマス","OH"],["中島 健斗","S"],["馬渡 拓巳","OH"],["重藤 トビアス赳","OH"],["藤中 颯志","L"],["山田 大貴","OH"],["エイブリル","MB"],["カネスキ","MB"],["李 博","MB"],["上條 レイモンド","MB"],["牧 大晃","OP"],["武田 大周","L"],["小野寺 瑛輝","S"],["藤井 直伸","S"]]},{"id":"sv-2026-27-jtekt-stings","title":"ジェイテクトSTINGS愛知（2026-27）","team_name":"ジェイテクトSTINGS愛知","players":[["藤中 優斗","OH"],["髙橋 健太郎","MB"],["堺 爽人","MB"],["川口 柊人","MB"],["河東 祐大","S"],["荒木 琢真","L"],["ボワイエ","OP"],["藤中 謙也","OH"],["ジャドソン","MB"],["藤原 直也","OH"],["出水 充希","OP"],["前田 一誠","S"],["高橋 和幸","L"],["岩本 大吾","MB"],["デファルコ","OH"],["高橋 慶帆","OP"]]},{"id":"sv-2026-27-wolfdogs-nagoya","title":"ウルフドッグス名古屋（2026-27）","team_name":"ウルフドッグス名古屋","players":[["山田 脩造","OH"],["澤田 晶","MB"],["深津 英臣","S"],["山﨑 真裕","MB"],["ブレーメ","MB"],["前田 凌吾","S"],["ブゲラ","OH"],["グレベニコフ","L"],["傳田 亮太","MB"],["水町 泰杜","OH"],["宮浦 健人","OP"],["市川 健太","L"],["豊田 譲","OP"],["山崎 彰都","OH"],["ジャヴォロノク","OH"],["フベル","MB"]]},{"id":"sv-2026-27-osaka-bluteon","title":"大阪ブルテオン（2026-27）","team_name":"大阪ブルテオン","players":[["中村 駿介","S"],["富田 将馬","OH"],["ブリザール","S"],["仲本 賢優","OH"],["山内 晶大","MB"],["西田 有志","OP"],["山本 智大","L"],["甲斐 優斗","OH"],["伊賀 亮平","L"],["西山 大翔","OP"],["西川 馨太郎","MB"],["バグナス","OH"],["エバデダン","MB"],["マッカーシー","MB"],["ロペス","OH"]]},{"id":"sv-2026-27-suntory-sunbirds","title":"サントリーサンバーズ大阪（2026-27）","team_name":"サントリーサンバーズ大阪","players":[["小野寺 太志","MB"],["佐藤 謙次","MB"],["下川 諒","S"],["パロンスキー","OH"],["関田 誠大","S"],["蔡 沛彰","MB"],["ベンタラ","OP"],["鬼木 錬","MB"],["喜入 祥充","L"],["備 一真","L"],["クリュカ","OH"],["甲斐 孝太郎","OP"],["染野 輝","OH"],["髙橋 塁","OH"],["鍬田 憲伸","OH"],["柏田 樹","MB"],["中野 倭","S"],["チチゴイ","OH"]]},{"id":"sv-2026-27-sakai-blazers","title":"日本製鉄堺ブレイザーズ（2026-27）","team_name":"日本製鉄堺ブレイザーズ","players":[["山根 大幸","MB"],["安井 恒介","OH"],["森 愛樹","L"],["高梨 健太","OH"],["秋間 直人","MB"],["大宅 真樹","S"],["渡邉 晃瑠","MB"],["江藤 巧","S"],["上村 琉乃介","OP"],["サーレマー","MB"],["中西 健裕","S"],["竹元 裕太郎","MB"],["柿崎 晃","OH"],["南口 辰揮","L"],["ネベス","OP"],["リナルディ","OH"],["ラモン","OH"]]},{"id":"sv-2026-27-hiroshima-thunders","title":"広島サンダーズ（2026-27）","team_name":"広島サンダーズ","players":[["柳北 悠李","OH"],["樋口 裕希","OH"],["西村 信","L"],["三輪 大将","MB"],["新井 雄大","OH"],["髙梨 海輝","MB"],["高木 啓士郎","L"],["坂下 純也","OH"],["西本 圭吾","MB"],["西 知恕","MB"],["金子 聖輝","S"],["山本 将平","OH"],["阿部 大樹","S"],["永露 元稀","S"],["山元 快太","OH"],["カンポス","OP"]]},{"id":"sv-2026-27-fragolad-kagoshima","title":"フラーゴラッド鹿児島（2026-27）","team_name":"フラーゴラッド鹿児島","players":[["長友 優磨","OP"],["古井 俊範","MB"],["笠利 真吾","OH"],["峯村 雄大","OH"],["原 亜久里","S"],["小森 郁己","OH"],["谷口 渉","L"],["山田 大悟","MB"],["酒井 啓輔","S"],["小澤 宙輝","OH"],["野添 凌","S"],["バイアム","OP"],["エルサー","OH"],["ティーニスマー","MB"],["カストロ","MB"]]}];
 const clone = (value) => JSON.parse(JSON.stringify(value));
 const $ = (id) => document.getElementById(id);
 function createId() { return window.crypto?.randomUUID?.() || `vn-${Date.now()}-${Math.random().toString(16).slice(2)}`; }
@@ -65,16 +68,28 @@ let matches = readJson(MATCHES_KEY, []);
 if (!Array.isArray(matches)) matches = [];
 let teamTemplates = readJson(TEAMS_KEY, []);
 if (!Array.isArray(teamTemplates)) teamTemplates = [];
+let matchFolders = readJson(FOLDERS_KEY, []);
+if (!Array.isArray(matchFolders)) matchFolders = [];
 let offlineReady = false;
 let toastTimer;
 let confirmAction = null;
 let formAction = null;
+let svTeamSeedPromise = null;
 const confirmDialog = $("confirm-dialog");
 const formDialog = $("form-dialog");
 const formContent = $("form-content");
 
 function esc(value) { return String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]); }
 function teamName(team) { return game.teamNames?.[team] || `${team}チーム`; }
+function showView(view) {
+  $("home-view").hidden = view !== "home";
+  $("team-view").hidden = view !== "teams";
+  $("saved-view").hidden = view !== "saved";
+  $("match-view").hidden = view !== "match";
+  if (view === "home") renderHome();
+  if (view === "saved") renderSavedView();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
 function saveGame() {
   try {
     localStorage.setItem(GAME_KEY, JSON.stringify(game));
@@ -86,6 +101,26 @@ function saveGame() {
 }
 function saveMatches() { localStorage.setItem(MATCHES_KEY, JSON.stringify(matches)); }
 function saveTeamTemplates() { localStorage.setItem(TEAMS_KEY, JSON.stringify(teamTemplates)); }
+async function seedSVLeagueTeams() {
+  if (localStorage.getItem(SV_TEAMS_SEEDED_KEY) && teamTemplates.length) return;
+  try {
+    const existing = new Set(teamTemplates.map((item) => item.id));
+    for (const team of SV_LEAGUE_CATALOG) {
+      if (existing.has(team.id)) continue;
+      teamTemplates.push({
+        id: team.id,
+        title: team.title,
+        teamName: team.team_name,
+        players: team.players.map(([name, position], index) => ({ id: `${team.id}-${index + 1}`, name, position })),
+      });
+    }
+    saveTeamTemplates();
+    localStorage.setItem(SV_TEAMS_SEEDED_KEY, "2026-27");
+  } catch (error) {
+    console.warn("SVリーグのチーム名簿を読み込めませんでした", error);
+  }
+}
+function saveMatchFolders() { localStorage.setItem(FOLDERS_KEY, JSON.stringify(matchFolders)); }
 function persist(message = "") { saveGame(); render(); if (message) showToast(message); }
 function showToast(message) {
   const el = $("toast"); el.textContent = message; el.classList.add("show"); clearTimeout(toastTimer);
@@ -192,9 +227,7 @@ function openTeamEditor() {
   });
 }
 function openRosterEditor() {
-  const panel = $("roster-management");
-  panel.open = true;
-  panel.scrollIntoView({ behavior: "smooth", block: "center" });
+  showView("teams");
 }
 function addPlayer(team) {
   const options = POSITIONS.map((position) => '<option>' + position + '</option>').join("");
@@ -210,7 +243,7 @@ function saveTeamTemplate(team) {
     const title = String(data.get("title")).trim();
     if (!title) return;
     teamTemplates.push({ id: createId(), title, teamName: teamName(team), players: clone(game.teams[team]) });
-    saveTeamTemplates(); renderTeamTemplates(); showToast("チームを保存しました");
+    saveTeamTemplates(); renderTeamTemplates("home-team-templates"); showToast("チームを保存しました");
   });
 }
 function loadTeamTemplate(templateId, team) {
@@ -226,9 +259,10 @@ function loadTeamTemplate(templateId, team) {
   if (game.spikePending?.team === team) game.spikePending = null;
   persist(teamName(team) + "に保存チームを読み込みました");
 }
-function renderTeamTemplates() {
+function renderTeamTemplates(target = "team-templates") {
   const select = (team) => '<select aria-label="保存チーム" id="team-template-' + team + '"><option value="">保存チームを選択</option>' + teamTemplates.map((item) => '<option value="' + esc(item.id) + '">' + esc(item.title) + '</option>').join("") + '</select><button class="button button-quiet" data-action="load-team" data-team="' + team + '">このチームに読み込む</button>';
-  $("team-templates").innerHTML = ["A", "B"].map((team) => '<article class="team-card"><h3>' + esc(teamName(team)) + '</h3><button class="button button-primary" data-action="save-team" data-team="' + team + '">現在のチームを保存</button><div class="template-load">' + select(team) + '</div></article>').join("") + (teamTemplates.length ? '<div class="template-list">' + [...teamTemplates].reverse().map((item) => '<div><span>' + esc(item.title) + ' · ' + esc(item.players.length) + '人</span><button class="button button-error" data-action="delete-team-template" data-id="' + esc(item.id) + '">削除</button></div>').join("") + '</div>' : '<p class="empty-feed">保存したチームはありません。</p>');
+  const element = $(target);
+  if (element) element.innerHTML = ["A", "B"].map((team) => '<article class="team-card"><h3>' + esc(teamName(team)) + '</h3><button class="button button-primary" data-action="save-team" data-team="' + team + '">現在のチームを保存</button><div class="template-load">' + select(team) + '</div></article>').join("") + (teamTemplates.length ? '<div class="template-list">' + [...teamTemplates].reverse().map((item) => '<div><span>' + esc(item.title) + ' · ' + esc(item.players.length) + '人</span><button class="button button-error" data-action="delete-team-template" data-id="' + esc(item.id) + '">削除</button></div>').join("") + '</div>' : '<p class="empty-feed">保存したチームはありません。</p>');
 }
 function openMatchSettings() {
   openForm("試合情報", `<label>試合名</label><input name="matchName" maxlength="60" value="${esc(game.matchName)}"><label>試合メモ</label><textarea name="matchNote" rows="5" maxlength="1500">${esc(game.matchNote)}</textarea>`, (data) => {
@@ -266,22 +300,47 @@ function hasData() {
   return game.rallies.length || game.pending.length || game.events.length || game.matchNote || game.finished || game.scores.A || game.scores.B || game.teamNames.A !== "Aチーム" || game.teamNames.B !== "Bチーム" || rosterChanged;
 }
 function archiveCurrent() {
-  const item = { id: game.id || createId(), title: game.matchName || `${teamName("A")} vs ${teamName("B")}`, savedAt: new Date().toISOString(), game: clone(game) };
+  const previous = matches.find((match) => match.id === game.id);
+  const item = { id: game.id || createId(), title: game.matchName || `${teamName("A")} vs ${teamName("B")}`, savedAt: new Date().toISOString(), folderId: previous?.folderId || "", game: clone(game) };
   item.game.id = item.id; matches = matches.filter((m) => m.id !== item.id); matches.push(item); game.id = item.id; saveMatches(); saveGame(); render(); return item;
 }
 function finishMatch() {
   if (game.spikePending) { game.pending.push(spikeRecord(game.spikePending, "未確定")); game.spikePending = null; }
   game.finished = true; game.finishedAt = new Date().toISOString(); const item = archiveCurrent(); showToast(`試合を終了して「${item.title}」を保存しました`);
 }
-function startNewMatch() {
-  if (hasData()) archiveCurrent(); game = freshGame(); persist("新しい試合を始めました");
+function startNewMatch() { openNewMatchSetup(); }
+async function openNewMatchSetup() {
+  if (svTeamSeedPromise) await svTeamSeedPromise;
+  const options = () => {
+    const league = teamTemplates.filter((item) => item.id?.startsWith("sv-2026-27-"));
+    const saved = teamTemplates.filter((item) => !item.id?.startsWith("sv-2026-27-"));
+    const option = (item) => '<option value="' + esc(item.id) + '">' + esc(item.title) + '</option>';
+    return '<option value="">初期名簿を使う</option>'
+      + (league.length ? '<optgroup label="2026-27 男子SVリーグ">' + league.map(option).join("") + '</optgroup>' : "")
+      + (saved.length ? '<optgroup label="保存したチーム">' + saved.map(option).join("") + '</optgroup>' : "");
+  };
+  const fields = '<label>試合名</label><input name="matchName" maxlength="60" placeholder="例：練習試合・地区大会"><label>Aチーム（SVリーグ・保存チーム）</label><select name="templateA">' + options() + '</select><label>Bチーム（SVリーグ・保存チーム）</label><select name="templateB">' + options() + '</select>';
+  openForm("新しい試合を始める", fields, (data) => {
+    if (hasData()) archiveCurrent();
+    game = freshGame();
+    game.matchName = String(data.get("matchName")).trim() || "試合";
+    for (const team of ["A", "B"]) {
+      const template = teamTemplates.find((item) => item.id === data.get("template" + team));
+      if (template) {
+        game.teamNames[team] = template.teamName || template.title;
+        game.teams[team] = template.players.map((player) => ({ ...clone(player), id: createId() }));
+      }
+    }
+    persist("新しい試合を始めました");
+    showView("match");
+  }, "試合を始める");
 }
 function openSavedMatch(id) {
   let item = matches.find((m) => m.id === id); if (!item) return;
   if (hasData()) { archiveCurrent(); item = matches.find((m) => m.id === id) || item; }
-  game = normalizeGame({ ...clone(item.game), id: item.id }); persist(`「${item.title}」を開きました`); window.scrollTo({ top: 0, behavior: "smooth" });
+  game = normalizeGame({ ...clone(item.game), id: item.id }); persist(`「${item.title}」を開きました`); showView("match");
 }
-function deleteSavedMatch(id) { matches = matches.filter((m) => m.id !== id); saveMatches(); renderArchive(); showToast("保存した試合を削除しました"); }
+function deleteSavedMatch(id) { matches = matches.filter((m) => m.id !== id); saveMatches(); renderArchive(); renderSavedView(); renderHome(); showToast("保存した試合を削除しました"); }
 
 function renderLineups() {
   $("lineups").innerHTML = ["A", "B"].map((team) => {
@@ -294,13 +353,15 @@ function renderLineups() {
   $("score-a").textContent = game.scores.A; $("score-b").textContent = game.scores.B; $("set-no").textContent = game.setNo; $("rally-no").textContent = String(game.rallyNo).padStart(3, "0");
   $("team-label-a").textContent = teamName("A"); $("team-label-b").textContent = teamName("B");
 }
-function renderRosterEditor() {
-  $("roster-editor").innerHTML = ["A", "B"].map((team) => {
+function renderRosterEditor(target = "roster-editor") {
+  const editor = $(target);
+  if (!editor) return;
+  editor.innerHTML = ["A", "B"].map((team) => {
     const rows = game.teams[team].map((player) => {
       const options = POSITIONS.map((position) => '<option ' + (position === player.position ? "selected" : "") + ">" + position + "</option>").join("");
       return '<form class="roster-row" data-player-edit-form data-team="' + team + '" data-player-id="' + esc(player.id) + '"><input name="name" aria-label="選手名" value="' + esc(player.name) + '" maxlength="24" required><select name="position" aria-label="ポジション">' + options + '</select><button class="button button-quiet" type="submit">保存</button><button class="button button-error" type="button" data-action="remove-player" data-team="' + team + '" data-player-id="' + esc(player.id) + '">削除</button></form>';
     }).join("");
-    return '<article class="team-card"><h3>' + esc(teamName(team)) + '</h3>' + rows + '<button class="button button-primary" data-action="add-player" data-team="' + team + '">＋ 選手を追加</button></article>';
+    return '<article class="team-card"><h3>' + esc(teamName(team)) + '</h3><form class="team-name-form" data-team-name-form data-team="' + team + '"><label>チーム名</label><input name="teamName" aria-label="チーム名" value="' + esc(teamName(team)) + '" maxlength="24" required><button class="button button-quiet" type="submit">チーム名を保存</button></form>' + rows + '<button class="button button-primary" data-action="add-player" data-team="' + team + '">＋ 選手を追加</button></article>';
   }).join("");
 }
 function renderRally() {
@@ -320,7 +381,7 @@ function renderRally() {
 function allPlays(g = game) { return [...(g.rallies || []).flatMap((r) => r.plays || []), ...(g.pending || [])]; }
 function renderStats(target = "stats-body", g = game) {
   const plays = allPlays(g), names = g.teamNames || { A: "Aチーム", B: "Bチーム" }, athletes = new Map();
-  ["A", "B"].forEach((team) => g.teams[team].forEach((player) => athletes.set(player.id, { id: player.id, team, position: player.position, name: player.name })));
+  Object.entries(g.teams || {}).forEach(([team, roster]) => roster.forEach((player) => athletes.set(player.id, { id: player.id, team, position: player.position, name: player.name })));
   plays.filter((p) => ["スパイク", "サーブ", "レシーブ", "ブロック"].includes(p.play)).forEach((p) => {
     const id = p.player_id || (p.team + "|" + p.position + "|" + p.player);
     if (!athletes.has(id)) athletes.set(id, { id, team: p.team, position: p.position, name: p.player });
@@ -355,8 +416,73 @@ function renderArchive() {
   }).join("") : '<p class="empty-feed">保存した試合はありません。</p>';
   matches.forEach((item) => { const id = `stats-${item.id}`; if ($(id)) renderStats(id, item.game); });
 }
+function aggregateStatsGame(sourceMatches = matches, includeCurrent = false) {
+  const result = { teams: {}, teamNames: {}, rallies: [], pending: [] }, teamKeys = new Map();
+  const sources = sourceMatches.map((item) => normalizeGame(clone(item.game || {})));
+  if (includeCurrent && hasData() && !sourceMatches.some((item) => item.id === game.id)) sources.push(clone(game));
+  const getTeamKey = (label) => {
+    if (!teamKeys.has(label)) {
+      const key = "team-" + (teamKeys.size + 1);
+      teamKeys.set(label, key); result.teamNames[key] = label; result.teams[key] = [];
+    }
+    return teamKeys.get(label);
+  };
+  for (const source of sources) {
+    const idMap = new Map();
+    for (const side of ["A", "B"]) {
+      const label = source.teamNames?.[side] || side + "チーム", key = getTeamKey(label);
+      for (const player of source.teams?.[side] || []) {
+        const id = "aggregate-" + encodeURIComponent(label) + "-" + encodeURIComponent(player.name);
+        idMap.set(player.id, id);
+        if (!result.teams[key].some((p) => p.id === id)) result.teams[key].push({ id, name: player.name, position: player.position });
+      }
+    }
+    const mapPlays = (plays) => (plays || []).map((play) => {
+      const label = source.teamNames?.[play.team] || play.team + "チーム", key = getTeamKey(label);
+      const playerId = idMap.get(play.player_id) || ("aggregate-" + encodeURIComponent(label) + "-" + encodeURIComponent(play.player || "選手"));
+      if (!result.teams[key].some((p) => p.id === playerId)) result.teams[key].push({ id: playerId, name: play.player || "選手", position: play.position || "OH" });
+      return { ...play, team: key, player_id: playerId };
+    });
+    for (const rally of source.rallies || []) result.rallies.push({ ...rally, plays: mapPlays(rally.plays) });
+    result.pending.push(...mapPlays(source.pending));
+  }
+  return result;
+}
+function renderHome() {
+  $("home-match-count").textContent = "保存試合 " + matches.length + "件";
+  const latest = [...matches].reverse().slice(0, 3);
+  $("home-recent-matches").innerHTML = latest.length ? latest.map((item) => {
+    const m = item.game || {}, names = m.teamNames || {}, scores = m.scores || {};
+    return '<button class="home-recent-row" data-action="open-match" data-id="' + esc(item.id) + '"><span><strong>' + esc(item.title || "試合") + '</strong><small>' + esc(names.A || "Aチーム") + ' ' + esc(scores.A || 0) + ' - ' + esc(scores.B || 0) + ' ' + esc(names.B || "Bチーム") + '</small></span><span>›</span></button>';
+  }).join("") : '<p class="empty-feed">保存した試合はここに表示されます。</p>';
+}
+function renderSavedView() {
+  const ordered = [...matches].reverse();
+  const groups = [...matchFolders.map((folder) => ({ id: folder.id, name: folder.name })), { id: "", name: "未分類" }];
+  const folderOptions = '<option value="">未分類</option>' + matchFolders.map((folder) => '<option value="' + esc(folder.id) + '">' + esc(folder.name) + '</option>').join("");
+  const matchCard = (item) => {
+    const m = item.game || {}, names = m.teamNames || {}, scores = m.scores || {};
+    const sets = (m.setScores || []).map((s) => "第" + s.set + "セット " + s.A + "-" + s.B).join(" · ");
+    const options = folderOptions.replace('value="' + esc(item.folderId || "") + '"', 'value="' + esc(item.folderId || "") + '" selected');
+    return '<article class="saved-match"><div><strong>' + esc(item.title || "試合") + '</strong><small>' + esc(names.A || "Aチーム") + ' ' + esc(scores.A || 0) + ' - ' + esc(scores.B || 0) + ' ' + esc(names.B || "Bチーム") + (sets ? ' · ' + sets : "") + '</small></div><label class="folder-move-label">保存先<select data-folder-match="' + esc(item.id) + '">' + options + '</select></label><div class="saved-actions"><button class="button button-primary" data-action="open-match" data-id="' + esc(item.id) + '">試合を開く</button><button class="button button-error" data-action="delete-match" data-id="' + esc(item.id) + '">削除</button></div><details><summary>この試合の選手成績</summary><div class="table-scroll"><table><thead><tr><th>チーム</th><th>選手</th><th>試行</th><th>得点</th><th>ミス</th><th>決定率</th><th>攻撃効率</th><th>サーブ効果率</th><th>ブロック</th><th>返球率</th></tr></thead><tbody id="folder-match-stats-' + esc(item.id) + '"></tbody></table></div></details></article>';
+  };
+  $("home-archive-list").innerHTML = ordered.length || matchFolders.length ? groups.map((group) => {
+    const groupMatches = ordered.filter((item) => (item.folderId || "") === group.id);
+    if (!groupMatches.length && !group.id) return "";
+    const statsId = group.id ? 'folder-stats-' + esc(group.id) : "";
+    const statsBlock = group.id ? '<details class="folder-stats"><summary>📊 フォルダー内の選手成績</summary><div class="table-scroll"><table><thead><tr><th>チーム</th><th>選手</th><th>試行</th><th>得点</th><th>ミス</th><th>決定率</th><th>攻撃効率</th><th>サーブ効果率</th><th>ブロック</th><th>返球率</th></tr></thead><tbody id="' + statsId + '"></tbody></table></div></details>' : "";
+    const folderTools = group.id ? '<div class="folder-tools"><button class="button button-quiet" data-action="rename-folder" data-id="' + esc(group.id) + '">名前を変更</button><button class="button button-error" data-action="delete-folder" data-id="' + esc(group.id) + '">フォルダーを削除</button></div>' : "";
+    return '<details class="match-folder" open><summary>📁 ' + esc(group.name) + ' · ' + groupMatches.length + '試合</summary>' + folderTools + statsBlock + (groupMatches.length ? groupMatches.map(matchCard).join("") : '<p class="empty-feed">このフォルダーは空です。</p>') + '</details>';
+  }).join("") : '<p class="empty-feed">保存した試合はありません。</p>';
+  matchFolders.forEach((folder) => {
+    const target = $("folder-stats-" + folder.id);
+    if (target) renderStats(target.id, aggregateStatsGame(ordered.filter((item) => item.folderId === folder.id), false));
+  });
+  ordered.forEach((item) => { const target = $("folder-match-stats-" + item.id); if (target) renderStats(target.id, item.game); });
+  renderStats("aggregate-stats-body", aggregateStatsGame(matches, true));
+}
 function render() {
-  renderLineups(); renderRosterEditor(); renderTeamTemplates(); renderRally(); renderStats(); renderHistory(); renderArchive();
+  renderLineups(); renderRosterEditor("home-roster-editor"); renderTeamTemplates("home-team-templates"); renderRally(); renderStats(); renderHistory(); renderArchive(); renderHome(); renderSavedView();
   $("network-label").textContent = offlineReady ? (navigator.onLine ? "オフライン利用の準備OK" : "オフライン · 端末に保存") : "オフライン利用を準備中";
 }
 
@@ -371,6 +497,31 @@ document.addEventListener("click", (event) => {
   else if (action === "timeout") { eventRecord("タイムアウト", b.dataset.team); persist(`${teamName(b.dataset.team)}のタイムアウトを記録しました`); }
   else if (action === "substitution") openSubstitution();
   else if (action === "end-set") openSetEnd();
+  else if (action === "go-home") showView("home");
+  else if (action === "home-new-match") openNewMatchSetup();
+  else if (action === "home-saved") showView("saved");
+  else if (action === "home-teams") showView("teams");
+  else if (action === "create-folder") openForm("試合フォルダーを作る", '<label>フォルダー名</label><input name="folderName" required maxlength="40" placeholder="例：2026秋季大会">', (data) => {
+    const name = String(data.get("folderName")).trim();
+    if (!name) return;
+    if (matchFolders.some((folder) => folder.name.toLocaleLowerCase() === name.toLocaleLowerCase())) { showToast("同じ名前のフォルダーがあります"); return; }
+    matchFolders.push({ id: createId(), name }); saveMatchFolders(); renderSavedView(); showToast("フォルダーを作成しました");
+  });
+  else if (action === "rename-folder") {
+    const folder = matchFolders.find((entry) => entry.id === b.dataset.id);
+    if (folder) openForm("フォルダー名を変更", '<label>フォルダー名</label><input name="folderName" required maxlength="40" value="' + esc(folder.name) + '">', (data) => {
+      const name = String(data.get("folderName")).trim();
+      if (!name) return;
+      if (matchFolders.some((entry) => entry.id !== folder.id && entry.name.toLocaleLowerCase() === name.toLocaleLowerCase())) { showToast("同じ名前のフォルダーがあります"); return; }
+      folder.name = name; saveMatchFolders(); renderSavedView(); showToast("フォルダー名を変更しました");
+    });
+  }
+  else if (action === "delete-folder") showConfirm("フォルダーを削除", "フォルダーだけを削除し、中の試合は未分類に移します。よろしいですか？", () => {
+    const folderId = b.dataset.id;
+    matchFolders = matchFolders.filter((folder) => folder.id !== folderId);
+    matches.forEach((item) => { if (item.folderId === folderId) item.folderId = ""; });
+    saveMatchFolders(); saveMatches(); renderSavedView(); showToast("フォルダーを削除しました");
+  }, "削除する");
   else if (action === "edit-roster") openRosterEditor();
   else if (action === "add-player") addPlayer(b.dataset.team);
   else if (action === "remove-player") showConfirm("選手を削除", "この選手を名簿から削除しますか？過去の記録は残ります。", () => {
@@ -386,7 +537,7 @@ document.addEventListener("click", (event) => {
     if (select?.value) showConfirm("保存チームを読み込む", teamName(b.dataset.team) + "の現在の名簿を保存したチームで置き換えます。過去のプレー記録は残ります。", () => loadTeamTemplate(select.value, b.dataset.team), "読み込む");
     else showToast("読み込む保存チームを選んでください");
   }
-  else if (action === "delete-team-template") showConfirm("保存チームを削除", "「" + (teamTemplates.find((item) => item.id === b.dataset.id)?.title || "") + "」を削除しますか？", () => { teamTemplates = teamTemplates.filter((item) => item.id !== b.dataset.id); saveTeamTemplates(); renderTeamTemplates(); showToast("保存チームを削除しました"); }, "削除");
+  else if (action === "delete-team-template") showConfirm("保存チームを削除", "「" + (teamTemplates.find((item) => item.id === b.dataset.id)?.title || "") + "」を削除しますか？", () => { teamTemplates = teamTemplates.filter((item) => item.id !== b.dataset.id); saveTeamTemplates(); renderTeamTemplates("home-team-templates"); showToast("保存チームを削除しました"); }, "削除");
   else if (action === "team-names") openTeamEditor();
   else if (action === "match-info") openMatchSettings();
   else if (action === "finish-match") showConfirm("試合を終了", "試合を終了して、この端末の保存試合に追加しますか？", finishMatch, "試合を終了");
@@ -400,6 +551,15 @@ document.addEventListener("click", (event) => {
 });
 
 document.addEventListener("submit", (event) => {
+  const teamNameForm = event.target.closest("[data-team-name-form]");
+  if (teamNameForm) {
+    event.preventDefault();
+    const name = String(new FormData(teamNameForm).get("teamName")).trim();
+    if (!name) return;
+    game.teamNames[teamNameForm.dataset.team] = name;
+    persist("チーム名を保存しました");
+    return;
+  }
   const form = event.target.closest("[data-player-edit-form]");
   if (!form) return;
   event.preventDefault();
@@ -414,6 +574,17 @@ document.addEventListener("submit", (event) => {
     if (game[key]?.player_id === playerId) { game[key].name = name; game[key].player = name; game[key].position = player.position; }
   }
   persist("選手情報を保存しました");
+});
+
+document.addEventListener("change", (event) => {
+  const select = event.target.closest("[data-folder-match]");
+  if (!select) return;
+  const match = matches.find((item) => item.id === select.dataset.folderMatch);
+  if (!match) return;
+  match.folderId = select.value || "";
+  saveMatches();
+  renderSavedView();
+  showToast("試合をフォルダーに移動しました");
 });
 
 function exportGame() {
@@ -484,3 +655,5 @@ if ("serviceWorker" in navigator && (location.protocol === "https:" || location.
   window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").then(() => navigator.serviceWorker.ready).then(() => { offlineReady = true; render(); }).catch((error) => console.error("オフライン機能の準備に失敗しました", error)));
 }
 render();
+svTeamSeedPromise = seedSVLeagueTeams();
+svTeamSeedPromise.then(() => { renderTeamTemplates("home-team-templates"); renderHome(); });
