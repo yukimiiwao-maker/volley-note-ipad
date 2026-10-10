@@ -102,9 +102,9 @@ function saveGame() {
 function saveMatches() { localStorage.setItem(MATCHES_KEY, JSON.stringify(matches)); }
 function saveTeamTemplates() { localStorage.setItem(TEAMS_KEY, JSON.stringify(teamTemplates)); }
 async function seedSVLeagueTeams() {
-  if (localStorage.getItem(SV_TEAMS_SEEDED_KEY) && teamTemplates.length) return;
   try {
     const existing = new Set(teamTemplates.map((item) => item.id));
+    if (localStorage.getItem(SV_TEAMS_SEEDED_KEY) && SV_LEAGUE_CATALOG.every((team) => existing.has(team.id))) return;
     for (const team of SV_LEAGUE_CATALOG) {
       if (existing.has(team.id)) continue;
       teamTemplates.push({
