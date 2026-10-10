@@ -16,10 +16,36 @@
 <body>
   <header class="app-header">
     <div class="brand"><div class="brand-icon">V</div><div><strong>Volley Note</strong><small>試合記録 · Lv.1</small></div></div>
-    <div class="offline-state"><span class="status-dot"></span><span id="network-label">端末に保存</span></div>
+    <div class="header-actions"><button class="text-button" data-action="go-home">ホーム</button><div class="offline-state"><span class="status-dot"></span><span id="network-label">端末に保存</span></div></div>
   </header>
 
-  <main>
+  <section id="home-view" class="home-view">
+    <div class="home-brand"><span>🏐</span><div><p>VOLLEY NOTE</p><small>試合もチームも、ここから。</small></div></div>
+    <div class="home-menu">
+      <button class="home-menu-button home-primary" data-action="home-new-match"><span class="home-icon">＋</span><span><strong>新しい試合を始める</strong><small>SVリーグ・保存チームから選択</small></span><span class="home-arrow">›</span></button>
+      <button class="home-menu-button" data-action="home-saved"><span class="home-icon">▤</span><span><strong>保存した試合を見る</strong><small id="home-match-count">保存試合 0件</small></span><span class="home-arrow">›</span></button>
+      <button class="home-menu-button" data-action="home-teams"><span class="home-icon">♟</span><span><strong>チームを作る・確認する</strong><small>選手とポジションを管理</small></span><span class="home-arrow">›</span></button>
+    </div>
+    <div class="home-latest"><h2>最近の試合</h2><div id="home-recent-matches"></div></div>
+    <p class="home-footer">記録を続けて、チームの成長を見える形に。</p>
+  </section>
+
+  <section id="team-view" class="home-subview" hidden>
+    <div class="home-subheading"><button class="text-button" data-action="go-home">‹ ホーム</button><h1>チームを作る・確認する</h1></div>
+    <p class="formula">選手を追加してポジションを設定し、チームを保存できます。</p>
+    <div id="home-roster-editor" class="team-lineups"></div>
+    <details class="roster-management" open><summary>保存したチーム</summary><p class="formula">2026-27男子SVリーグの全12チームを登録済みです。保存チームから選ぶと試合に読み込めます。名簿は<a href="https://japanvolleydb.com/teams?category=SV&amp;gender=M&amp;lang=ja" target="_blank" rel="noopener">Japan Volleyball Data Bank</a>の公開情報をもとにしています。</p><div id="home-team-templates" class="team-lineups"></div></details>
+  </section>
+
+  <section id="saved-view" class="home-subview" hidden>
+    <div class="home-subheading"><button class="text-button" data-action="go-home">‹ ホーム</button><h1>保存した試合</h1></div>
+    <button class="button button-primary" data-action="create-folder">＋ フォルダーを作る</button>
+    <p class="formula">試合カードの保存先を選ぶと、フォルダーにまとめられます。フォルダー内の成績も確認できます。</p>
+    <div id="home-archive-list"></div>
+    <section class="stats-section aggregate-section"><div class="section-heading"><div><span class="step">ALL</span><h2>全試合の選手成績</h2></div></div><div class="table-scroll"><table><thead><tr><th>チーム</th><th>選手</th><th>スパイク試行</th><th>得点</th><th>ミス</th><th>決定率</th><th>攻撃効率</th><th>サーブ効果率</th><th>ブロック</th><th>レシーブ返球率</th></tr></thead><tbody id="aggregate-stats-body"></tbody></table></div><p class="formula">保存試合と進行中の試合を合算しています。</p></section>
+  </section>
+
+  <main id="match-view" hidden>
     <section class="scoreboard" aria-label="現在のスコア">
       <div class="score-team"><span id="team-label-a">Aチーム</span><strong id="score-a">0</strong></div>
       <div class="set-current"><small>SET</small><strong id="set-no">1</strong></div>
@@ -29,8 +55,6 @@
     <section class="lineups">
       <div class="section-heading"><div><span class="step">01</span><h1>選手を選ぶ</h1></div><div><button class="text-button" data-action="team-names">チーム名</button><button class="text-button" data-action="edit-roster">選手登録・ポジション</button></div></div>
       <div class="team-lineups" id="lineups"></div>
-      <details class="roster-management" id="roster-management"><summary>選手登録・ポジション設定</summary><div id="roster-editor" class="team-lineups"></div></details>
-      <details class="roster-management"><summary>保存したチーム</summary><p class="formula">チーム名・選手名・ポジションをこの端末に保存して、別の試合でも呼び出せます。</p><div id="team-templates" class="team-lineups"></div></details>
     </section>
 
     <section class="rally-section">
@@ -75,6 +99,7 @@
     <details class="history-section"><summary>試合履歴 <span id="history-count">0</span></summary><div id="history-list"></div></details>
     <details class="history-section"><summary>保存した試合 <span id="saved-count">0</span></summary><div id="saved-matches"></div></details>
     <details class="history-section"><summary>ラリー履歴を修正</summary><button class="button button-quiet" data-action="edit-rally">得点チームを修正</button></details>
+    <button class="text-button back-home" data-action="go-home">‹ ホームに戻る</button>
     <div class="bottom-actions"><button class="text-button" data-action="reset">試合をリセット</button><span id="save-state">この端末に保存済み</span></div>
   </main>
 
