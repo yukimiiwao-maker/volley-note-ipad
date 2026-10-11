@@ -17,7 +17,7 @@ function freshGame() {
     id: createId(), matchName: "試合", matchNote: "", teamNames: { A: "Aチーム", B: "Bチーム" },
     teams: Object.fromEntries(["A", "B"].map((team) => [team, LEGACY_POSITIONS.map((slot, index) => ({ id: `${team}-default-${index + 1}`, name: `${slot} 選手`, position: DEFAULT_ROLES[index] }))])),
     scores: { A: 0, B: 0 }, setNo: 1, rallyNo: 1, setScores: [], selected: null, spikePending: null,
-    pending: [], rallies: [], events: [], finished: false, finishedAt: null,
+    pending: [], rallies: [], events: [], activePlayerIds: { A: null, B: null }, finished: false, finishedAt: null,
   };
 }
 
@@ -39,6 +39,10 @@ function normalizeGame(raw = {}) {
     const roster = raw.teams?.[team] ?? value.teams[team];
     if (Array.isArray(roster)) return [team, roster.map((p, index) => ({ id: p.id || `${team}-migrated-${index}-${Date.now()}`, name: String(p.name || "選手"), position: normalizePosition(p.position) }))];
     return [team, Object.entries(roster || {}).map(([slot, name], index) => ({ id: `${team}-legacy-${index + 1}`, name: String(name), position: normalizePosition(slot) }))];
+  }));
+  value.activePlayerIds = Object.fromEntries(["A", "B"].map((team) => {
+    const active = raw.activePlayerIds?.[team];
+    return [team, Array.isArray(active) ? active.filter((id) => value.teams[team].some((player) => player.id === id)) : null];
   }));
   const playerIdFor = (team, position, name) => value.teams[team]?.find((p) => p.position === position && p.name === name)?.id;
   const normalizePlay = (p) => {
@@ -138,7 +142,7 @@ function openForm(title, fields, action, saveLabel = "保存") {
   formAction = action; formDialog.showModal();
 }
 formContent.addEventListener("submit", (event) => {
-  event.preventDefault(); const action = formAction; formAction = null; if (action) action(new FormData(formContent)); formDialog.close();
+  event.preventDefault(); const action = formAction; if (action && action(new FormData(formContent)) === false) return; formAction = null; formDialog.close();
 });
 formContent.addEventListener("click", (event) => { if (event.target.closest("[data-close-form]")) { formAction = null; formDialog.close(); } });
 
@@ -229,6 +233,21 @@ function openTeamEditor() {
 function openRosterEditor() {
   showView("teams");
 }
+function openParticipantSetup() {
+  const group = (team) => {
+    const active = Array.isArray(game.activePlayerIds?.[team]) ? new Set(game.activePlayerIds[team]) : null;
+    const choices = game.teams[team].map((player) => '<label class="participant-option"><input type="checkbox" name="active' + team + '" value="' + esc(player.id) + '" ' + (!active || active.has(player.id) ? "checked" : "") + '><span><small>' + esc(player.position) + '</small>' + esc(player.name) + '</span></label>').join("");
+    return '<fieldset class="participant-group"><legend>' + esc(teamName(team)) + '</legend><div class="participant-options">' + choices + '</div></fieldset>';
+  };
+  const fields = '<p>試合に出ない選手のチェックを外してください。交代で出る選手はチェックを残します。</p><div class="participant-groups">' + group("A") + group("B") + '</div>';
+  openForm("試合に出る選手を選ぶ", fields, (data) => {
+    const selected = { A: data.getAll("activeA"), B: data.getAll("activeB") };
+    if (!selected.A.length || !selected.B.length) { showToast("A・B両チームから1人以上選んでください"); return false; }
+    game.activePlayerIds = selected;
+    if (game.selected && !selected[game.selected.team].includes(game.selected.player_id)) game.selected = null;
+    persist("出場選手を設定しました");
+  });
+}
 function addPlayer(team) {
   const options = POSITIONS.map((position) => '<option>' + position + '</option>').join("");
   openForm(teamName(team) + "に選手を追加", '<label>選手名</label><input name="name" required maxlength="24" autocomplete="off"><label>ポジション</label><select name="position">' + options + '</select>', (data) => {
@@ -255,6 +274,7 @@ function loadTeamTemplate(templateId, team) {
     return { ...clone(player), id: existing?.id || createId() };
   });
   game.teamNames[team] = item.teamName || item.title;
+  game.activePlayerIds[team] = null;
   if (game.selected?.team === team) game.selected = null;
   if (game.spikePending?.team === team) game.spikePending = null;
   persist(teamName(team) + "に保存チームを読み込みました");
@@ -270,7 +290,10 @@ function openMatchSettings() {
   });
 }
 function openSubstitution() {
-  const outgoing = ["A", "B"].flatMap((team) => game.teams[team].map((p) => '<option value="' + team + '|' + p.id + '">' + esc(teamName(team)) + " · " + esc(p.position) + " " + esc(p.name) + "</option>")).join("");
+  const outgoing = ["A", "B"].flatMap((team) => {
+    const active = game.activePlayerIds?.[team];
+    return game.teams[team].filter((p) => !Array.isArray(active) || active.includes(p.id)).map((p) => '<option value="' + team + '|' + p.id + '">' + esc(teamName(team)) + " · " + esc(p.position) + " " + esc(p.name) + "</option>");
+  }).join("");
   const positions = POSITIONS.map((p) => "<option>" + p + "</option>").join("");
   const fields = '<label>交代する選手</label><select name="outgoing">' + outgoing + '</select><label>入る選手</label><input name="name" required maxlength="24" autocomplete="off"><label>ポジション</label><select name="position">' + positions + "</select>";
   openForm("選手交代", fields, (data) => {
@@ -280,7 +303,9 @@ function openSubstitution() {
     if (!name || !outgoingPlayer) return;
     game.teams[team] = game.teams[team].filter((p) => p.id !== outgoingId);
     const position = data.get("position");
-    game.teams[team].push({ id: createId(), name, position });
+    const incoming = { id: createId(), name, position };
+    game.teams[team].push(incoming);
+    if (Array.isArray(game.activePlayerIds?.[team])) game.activePlayerIds[team].push(incoming.id);
     eventRecord("選手交代", team, outgoingPlayer.position + " " + outgoingPlayer.name + " → " + position + " " + name);
     persist(teamName(team) + "の選手を交代しました");
   });
@@ -321,6 +346,7 @@ async function openNewMatchSetup() {
   };
   const fields = '<label>試合名</label><input name="matchName" maxlength="60" placeholder="例：練習試合・地区大会"><label>Aチーム（SVリーグ・保存チーム）</label><select name="templateA">' + options() + '</select><label>Bチーム（SVリーグ・保存チーム）</label><select name="templateB">' + options() + '</select>';
   openForm("新しい試合を始める", fields, (data) => {
+    const usesSVLeague = ["A", "B"].some((team) => String(data.get("template" + team)).startsWith("sv-2026-27-"));
     if (hasData()) archiveCurrent();
     game = freshGame();
     game.matchName = String(data.get("matchName")).trim() || "試合";
@@ -333,6 +359,7 @@ async function openNewMatchSetup() {
     }
     persist("新しい試合を始めました");
     showView("match");
+    if (usesSVLeague) openParticipantSetup();
   }, "試合を始める");
 }
 function openSavedMatch(id) {
@@ -344,7 +371,9 @@ function deleteSavedMatch(id) { matches = matches.filter((m) => m.id !== id); sa
 
 function renderLineups() {
   $("lineups").innerHTML = ["A", "B"].map((team) => {
-    const buttons = game.teams[team].map((player) => {
+    const activeIds = game.activePlayerIds?.[team];
+    const lineupPlayers = Array.isArray(activeIds) ? game.teams[team].filter((player) => activeIds.includes(player.id)) : game.teams[team];
+    const buttons = lineupPlayers.map((player) => {
       const active = game.selected?.player_id === player.id;
       return '<button class="player-choice ' + (active ? "selected" : "") + '" data-action="select" data-team="' + team + '" data-player-id="' + esc(player.id) + '" ' + (game.finished ? "disabled" : "") + '><span class="position">' + esc(player.position) + '</span><span class="player-name">' + esc(player.name) + "</span></button>";
     }).join("");
@@ -501,6 +530,7 @@ document.addEventListener("click", (event) => {
   else if (action === "home-new-match") openNewMatchSetup();
   else if (action === "home-saved") showView("saved");
   else if (action === "home-teams") showView("teams");
+  else if (action === "set-participants") openParticipantSetup();
   else if (action === "create-folder") openForm("試合フォルダーを作る", '<label>フォルダー名</label><input name="folderName" required maxlength="40" placeholder="例：2026秋季大会">', (data) => {
     const name = String(data.get("folderName")).trim();
     if (!name) return;
@@ -527,6 +557,7 @@ document.addEventListener("click", (event) => {
   else if (action === "remove-player") showConfirm("選手を削除", "この選手を名簿から削除しますか？過去の記録は残ります。", () => {
     const { team, playerId } = b.dataset;
     game.teams[team] = game.teams[team].filter((p) => p.id !== playerId);
+    if (Array.isArray(game.activePlayerIds?.[team])) game.activePlayerIds[team] = game.activePlayerIds[team].filter((id) => id !== playerId);
     if (game.selected?.player_id === playerId) game.selected = null;
     if (game.spikePending?.player_id === playerId) game.spikePending = null;
     persist("選手を削除しました");
