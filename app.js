@@ -7,7 +7,7 @@ const POSITIONS = ["OH", "MB", "OP", "S", "L"];
 const LEGACY_POSITIONS = ["OH①", "OH②", "MB①", "MB②", "OP", "S", "L"];
 const DEFAULT_ROLES = ["OH", "OH", "MB", "MB", "OP", "S", "L"];
 const PLAYS = ["サーブ", "レシーブ", "トス", "スパイク", "ブロック", "ミス"];
-const SV_LEAGUE_CATALOG = [{"id":"sv-2026-27-voreas","title":"ヴォレアス北海道（2026-27）","team_name":"ヴォレアス北海道","players":[["中道 優斗","OH"],["国京 大海","S"],["松下 彪雅","MB"],["井上 仁","MB"],["山岸 隼","S"],["ゾロトゥーヒン","OP"],["日車 恭輔","OH"],["池田 幸太","OH"],["タンメアル","OH"],["外崎 航平","L"],["荒尾 怜音","L"],["ダール","OP"],["山田 航旗","MB"],["西 宏志朗","L"],["浜田 翔太","S"],["三好 佳介","MB"],["タンメマー","MB"]]},{"id":"sv-2026-27-yellow-stars","title":"北海道イエロースターズ（2026-27）","team_name":"北海道イエロースターズ","players":[["新山 駿","L"],["中谷 薫","MB"],["住友 厚介","MB"],["渡辺 俊介","L"],["ファステランド","MB"],["久保下 航平","S"],["出口 大聖","MB"],["吉村 颯太","OH"],["山田 滉太","OH"],["池田 颯太","OP"],["重留 日向","OH"],["中野 竜","OH"],["澤口 将太郎","OH"],["本澤 凌斗","S"],["早坂 心之介","S"],["張 育陞","OP"],["都築 仁","OP"],["前田 幸久","L"],["栁澤 賢","MB"],["堀内 大志","OH"],["島 波輝","MB"],["クヴァーレン","OH"]]},{"id":"sv-2026-27-tokyo-great-bears","title":"東京グレートベアーズ（2026-27）","team_name":"東京グレートベアーズ","players":[["伊藤 吏玖","MB"],["深津 旭弘","S"],["コザメルニク","MB"],["クレク","OP"],["柳田 将洋","OH"],["古賀 太一郎","L"],["後藤 陸翔","OH"],["村山 豪","MB"],["大竹 壱青","MB"],["ヴィセンティン","OH"],["大前 隆貴","L"],["川野 琢磨","OH"],["黒川 竜星","S"],["近藤 蘭丸","S"],["髙島 優作","OP"]]},{"id":"sv-2026-27-shinshu-matsumoto","title":"信州松本トライデンツ（2026-27）","team_name":"信州松本トライデンツ","players":[["松本 慶彦","MB"],["ラマ","OH"],["酒井 秀輔","OP"],["千葉 貫世","MB"],["難波 宏治","L"],["赤星 伸城","S"],["ジョン","OP"],["藤原 奨太","OH"],["安原 大","MB"],["工藤 有史","OH"],["星名 勇佑","S"],["松尾 敬介","L"],["スミス","MB"],["伊藤 洸貴","S"],["佐藤 隆哉","OH"],["一条 太嘉丸","OH"],["マックレヴィン","MB"],["岸川 蓮樹","OP"],["安部 翔大","MB"]]},{"id":"sv-2026-27-toray-shizuoka","title":"東レアローズ静岡（2026-27）","team_name":"東レアローズ静岡","players":[["難波 尭弘","MB"],["新 貴裕","S"],["ヴァルガ","OH"],["ガルシア","OP"],["楠本 岳","OH"],["デアルマス","OH"],["中島 健斗","S"],["馬渡 拓巳","OH"],["重藤 トビアス赳","OH"],["藤中 颯志","L"],["山田 大貴","OH"],["エイブリル","MB"],["カネスキ","MB"],["李 博","MB"],["上條 レイモンド","MB"],["牧 大晃","OP"],["武田 大周","L"],["小野寺 瑛輝","S"],["藤井 直伸","S"]]},{"id":"sv-2026-27-jtekt-stings","title":"ジェイテクトSTINGS愛知（2026-27）","team_name":"ジェイテクトSTINGS愛知","players":[["藤中 優斗","OH"],["髙橋 健太郎","MB"],["堺 爽人","MB"],["川口 柊人","MB"],["河東 祐大","S"],["荒木 琢真","L"],["ボワイエ","OP"],["藤中 謙也","OH"],["ジャドソン","MB"],["藤原 直也","OH"],["出水 充希","OP"],["前田 一誠","S"],["高橋 和幸","L"],["岩本 大吾","MB"],["デファルコ","OH"],["高橋 慶帆","OP"]]},{"id":"sv-2026-27-wolfdogs-nagoya","title":"ウルフドッグス名古屋（2026-27）","team_name":"ウルフドッグス名古屋","players":[["山田 脩造","OH"],["澤田 晶","MB"],["深津 英臣","S"],["山﨑 真裕","MB"],["ブレーメ","MB"],["前田 凌吾","S"],["ブゲラ","OH"],["グレベニコフ","L"],["傳田 亮太","MB"],["水町 泰杜","OH"],["宮浦 健人","OP"],["市川 健太","L"],["豊田 譲","OP"],["山崎 彰都","OH"],["ジャヴォロノク","OH"],["フベル","MB"]]},{"id":"sv-2026-27-osaka-bluteon","title":"大阪ブルテオン（2026-27）","team_name":"大阪ブルテオン","players":[["中村 駿介","S"],["富田 将馬","OH"],["ブリザール","S"],["仲本 賢優","OH"],["山内 晶大","MB"],["西田 有志","OP"],["山本 智大","L"],["甲斐 優斗","OH"],["伊賀 亮平","L"],["西山 大翔","OP"],["西川 馨太郎","MB"],["バグナス","OH"],["エバデダン","MB"],["マッカーシー","MB"],["ロペス","OH"]]},{"id":"sv-2026-27-suntory-sunbirds","title":"サントリーサンバーズ大阪（2026-27）","team_name":"サントリーサンバーズ大阪","players":[["小野寺 太志","MB"],["佐藤 謙次","MB"],["下川 諒","S"],["パロンスキー","OH"],["関田 誠大","S"],["蔡 沛彰","MB"],["ベンタラ","OP"],["鬼木 錬","MB"],["喜入 祥充","L"],["備 一真","L"],["クリュカ","OH"],["甲斐 孝太郎","OP"],["染野 輝","OH"],["髙橋 塁","OH"],["鍬田 憲伸","OH"],["柏田 樹","MB"],["中野 倭","S"],["チチゴイ","OH"]]},{"id":"sv-2026-27-sakai-blazers","title":"日本製鉄堺ブレイザーズ（2026-27）","team_name":"日本製鉄堺ブレイザーズ","players":[["山根 大幸","MB"],["安井 恒介","OH"],["森 愛樹","L"],["高梨 健太","OH"],["秋間 直人","MB"],["大宅 真樹","S"],["渡邉 晃瑠","MB"],["江藤 巧","S"],["上村 琉乃介","OP"],["サーレマー","MB"],["中西 健裕","S"],["竹元 裕太郎","MB"],["柿崎 晃","OH"],["南口 辰揮","L"],["ネベス","OP"],["リナルディ","OH"],["ラモン","OH"]]},{"id":"sv-2026-27-hiroshima-thunders","title":"広島サンダーズ（2026-27）","team_name":"広島サンダーズ","players":[["柳北 悠李","OH"],["樋口 裕希","OH"],["西村 信","L"],["三輪 大将","MB"],["新井 雄大","OH"],["髙梨 海輝","MB"],["高木 啓士郎","L"],["坂下 純也","OH"],["西本 圭吾","MB"],["西 知恕","MB"],["金子 聖輝","S"],["山本 将平","OH"],["阿部 大樹","S"],["永露 元稀","S"],["山元 快太","OH"],["カンポス","OP"]]},{"id":"sv-2026-27-fragolad-kagoshima","title":"フラーゴラッド鹿児島（2026-27）","team_name":"フラーゴラッド鹿児島","players":[["長友 優磨","OP"],["古井 俊範","MB"],["笠利 真吾","OH"],["峯村 雄大","OH"],["原 亜久里","S"],["小森 郁己","OH"],["谷口 渉","L"],["山田 大悟","MB"],["酒井 啓輔","S"],["小澤 宙輝","OH"],["野添 凌","S"],["バイアム","OP"],["エルサー","OH"],["ティーニスマー","MB"],["カストロ","MB"]]}];
+const SV_LEAGUE_CATALOG = [{"id":"sv-2026-27-voreas","title":"ヴォレアス北海道（2026-27）","team_name":"ヴォレアス北海道","players":[["中道 優斗","OH"],["国京 大海","S"],["松下 彪雅","MB"],["井上 仁","MB"],["山岸 隼","S"],["ゾロトゥーヒン","OP"],["日車 恭輔","OH"],["池田 幸太","OH"],["タンメアル","OH"],["外崎 航平","L"],["荒尾 怜音","L"],["ダール","OP"],["山田 航旗","MB"],["西 宏志朗","L"],["浜田 翔太","S"],["三好 佳介","MB"],["タンメマー","MB"]]},{"id":"sv-2026-27-yellow-stars","title":"北海道イエロースターズ（2026-27）","team_name":"北海道イエロースターズ","players":[["新山 駿","L"],["中谷 薫","MB"],["住友 厚介","MB"],["渡辺 俊介","L"],["ファステランド","MB"],["久保下 航平","S"],["出口 大聖","MB"],["吉村 颯太","L"],["山田 滉太","OH"],["池田 颯太","OP"],["重留 日向","OH"],["中野 竜","OH"],["澤口 将太郎","OH"],["本澤 凌斗","S"],["早坂 心之介","S"],["張 育陞","OP"],["都築 仁","OP"],["前田 幸久","L"],["栁澤 賢","MB"],["堀内 大志","OH"],["島 波輝","MB"],["クヴァーレン","OH"]]},{"id":"sv-2026-27-tokyo-great-bears","title":"東京グレートベアーズ（2026-27）","team_name":"東京グレートベアーズ","players":[["伊藤 吏玖","MB"],["深津 旭弘","S"],["ヤン・コザメルニク","MB"],["バルトシュ・クレク","OP"],["柳田 将洋","OH"],["戸嵜 嵩大","OH"],["古賀 太一郎","L"],["後藤 陸翔","OH"],["村山 豪","MB"],["大竹 壱青","MB"],["今橋 祐希","S"],["亀山 拓巳","OH"],["ルチアーノ・ヴィセンティン","OH"],["マーク・ルラ","OH"],["五頭 寛大","L"],["大前 隆貴","L"],["川野 琢磨","OH"],["黒川 竜星","S"],["近藤 蘭丸","S"],["髙島 優作","OP"]]},{"id":"sv-2026-27-shinshu-matsumoto","title":"信州松本トライデンツ（2026-27）","team_name":"信州松本トライデンツ","players":[["松本 慶彦","MB"],["ラマ","OH"],["酒井 秀輔","OP"],["千葉 貫世","MB"],["難波 宏治","L"],["赤星 伸城","S"],["ジョン","OP"],["藤原 奨太","OH"],["安原 大","MB"],["工藤 有史","OH"],["星名 勇佑","S"],["松尾 敬介","L"],["スミス","MB"],["伊藤 洸貴","S"],["佐藤 隆哉","OH"],["一条 太嘉丸","OH"],["マックレヴィン","MB"],["岸川 蓮樹","OP"],["安部 翔大","MB"]]},{"id":"sv-2026-27-toray-shizuoka","title":"東レアローズ静岡（2026-27）","team_name":"東レアローズ静岡","players":[["難波 尭弘","MB"],["新 貴裕","S"],["ヴァルガ","OH"],["ガルシア","OP"],["楠本 岳","OH"],["デアルマス","OH"],["中島 健斗","S"],["馬渡 拓巳","OH"],["重藤 トビアス赳","OH"],["藤中 颯志","L"],["山田 大貴","OH"],["エイブリル","MB"],["カネスキ","MB"],["李 博","MB"],["上條 レイモンド","MB"],["牧 大晃","OH"],["武田 大周","L"],["小野寺 瑛輝","S"],["藤井 直伸","S"]]},{"id":"sv-2026-27-jtekt-stings","title":"ジェイテクトSTINGS愛知（2026-27）","team_name":"ジェイテクトSTINGS愛知","players":[["藤中 優斗","OH"],["髙橋 健太郎","MB"],["堺 爽人","MB"],["川口 柊人","MB"],["河東 祐大","S"],["荒木 琢真","L"],["ボワイエ","OP"],["藤中 謙也","OH"],["ジャドソン","MB"],["藤原 直也","OH"],["出水 充希","OH"],["前田 一誠","S"],["高橋 和幸","L"],["岩本 大吾","MB"],["デファルコ","OH"],["高橋 慶帆","OP"]]},{"id":"sv-2026-27-wolfdogs-nagoya","title":"ウルフドッグス名古屋（2026-27）","team_name":"ウルフドッグス名古屋","players":[["山田 脩造","OH"],["澤田 晶","MB"],["深津 英臣","S"],["山﨑 真裕","MB"],["ブレーメ","MB"],["前田 凌吾","S"],["ブゲラ","OH"],["グレベニコフ","L"],["傳田 亮太","MB"],["水町 泰杜","OH"],["宮浦 健人","OP"],["市川 健太","L"],["豊田 譲","OP"],["山崎 彰都","OH"],["ジャヴォロノク","OH"],["フベル","MB"]]},{"id":"sv-2026-27-osaka-bluteon","title":"大阪ブルテオン（2026-27）","team_name":"大阪ブルテオン","players":[["中村 駿介","S"],["富田 将馬","OH"],["ブリザール","S"],["仲本 賢優","OH"],["山内 晶大","MB"],["西田 有志","OP"],["山本 智大","L"],["甲斐 優斗","OH"],["伊賀 亮平","L"],["西山 大翔","OP"],["西川 馨太郎","MB"],["バグナス","OH"],["エバデダン","MB"],["マッカーシー","MB"],["ロペス","OH"],["野添 凌","S"]]},{"id":"sv-2026-27-suntory-sunbirds","title":"サントリーサンバーズ大阪（2026-27）","team_name":"サントリーサンバーズ大阪","players":[["小野寺 太志","MB"],["佐藤 謙次","MB"],["下川 諒","S"],["パロンスキー","OH"],["関田 誠大","S"],["蔡 沛彰","MB"],["ベンタラ","OP"],["鬼木 錬","MB"],["喜入 祥充","L"],["備 一真","L"],["クリュカ","OH"],["甲斐 孝太郎","OP"],["染野 輝","OH"],["髙橋 塁","OH"],["鍬田 憲伸","OH"],["柏田 樹","MB"],["中野 倭","S"],["チチゴイ","OH"]]},{"id":"sv-2026-27-sakai-blazers","title":"日本製鉄堺ブレイザーズ（2026-27）","team_name":"日本製鉄堺ブレイザーズ","players":[["山根 大幸","MB"],["安井 恒介","OH"],["森 愛樹","L"],["高梨 健太","OH"],["秋間 直人","MB"],["大宅 真樹","S"],["渡邉 晃瑠","MB"],["江藤 巧","S"],["上村 琉乃介","OP"],["サーレマー","MB"],["中西 健裕","S"],["竹元 裕太郎","MB"],["柿崎 晃","OH"],["南口 辰揮","L"],["ネベス","OP"],["リナルディ","OH"],["ラモン","OH"]]},{"id":"sv-2026-27-hiroshima-thunders","title":"広島サンダーズ（2026-27）","team_name":"広島サンダーズ","players":[["柳北 悠李","OH"],["樋口 裕希","OH"],["西村 信","L"],["三輪 大将","MB"],["新井 雄大","OH"],["髙梨 海輝","MB"],["高木 啓士郎","L"],["坂下 純也","OH"],["西本 圭吾","MB"],["西 知恕","MB"],["金子 聖輝","S"],["山本 将平","OH"],["阿部 大樹","S"],["永露 元稀","S"],["山元 快太","OH"],["カンポス","OP"]]},{"id":"sv-2026-27-fragolad-kagoshima","title":"フラーゴラッド鹿児島（2026-27）","team_name":"フラーゴラッド鹿児島","players":[["長友 優磨","OP"],["古井 俊範","MB"],["笠利 真吾","OH"],["峯村 雄大","OH"],["原 亜久里","S"],["小森 郁己","L"],["谷口 渉","L"],["山田 大悟","MB"],["酒井 啓輔","S"],["小澤 宙輝","OH"],["迫田 郭志","OH"],["バイアム","OP"],["エルサー","OH"],["ティーニスマー","MB"],["カストロ","MB"]]}];
 const clone = (value) => JSON.parse(JSON.stringify(value));
 const $ = (id) => document.getElementById(id);
 function createId() { return window.crypto?.randomUUID?.() || `vn-${Date.now()}-${Math.random().toString(16).slice(2)}`; }
@@ -17,7 +17,7 @@ function freshGame() {
     id: createId(), matchName: "試合", matchNote: "", teamNames: { A: "Aチーム", B: "Bチーム" },
     teams: Object.fromEntries(["A", "B"].map((team) => [team, LEGACY_POSITIONS.map((slot, index) => ({ id: `${team}-default-${index + 1}`, name: `${slot} 選手`, position: DEFAULT_ROLES[index] }))])),
     scores: { A: 0, B: 0 }, setNo: 1, rallyNo: 1, setScores: [], selected: null, spikePending: null,
-    pending: [], rallies: [], events: [], activePlayerIds: { A: null, B: null }, finished: false, finishedAt: null,
+    pending: [], rallies: [], events: [], activePlayerIds: { A: null, B: null }, courtSides: { A: "left", B: "right" }, finished: false, finishedAt: null,
   };
 }
 
@@ -44,6 +44,7 @@ function normalizeGame(raw = {}) {
     const active = raw.activePlayerIds?.[team];
     return [team, Array.isArray(active) ? active.filter((id) => value.teams[team].some((player) => player.id === id)) : null];
   }));
+  value.courtSides = { A: "left", B: "right", ...(raw.courtSides || {}) };
   const playerIdFor = (team, position, name) => value.teams[team]?.find((p) => p.position === position && p.name === name)?.id;
   const normalizePlay = (p) => {
     if (!p.player && p.name) p.player = p.name;
@@ -107,19 +108,23 @@ function saveMatches() { localStorage.setItem(MATCHES_KEY, JSON.stringify(matche
 function saveTeamTemplates() { localStorage.setItem(TEAMS_KEY, JSON.stringify(teamTemplates)); }
 async function seedSVLeagueTeams() {
   try {
-    const existing = new Set(teamTemplates.map((item) => item.id));
-    if (localStorage.getItem(SV_TEAMS_SEEDED_KEY) && SV_LEAGUE_CATALOG.every((team) => existing.has(team.id))) return;
+    let changed = false;
     for (const team of SV_LEAGUE_CATALOG) {
-      if (existing.has(team.id)) continue;
-      teamTemplates.push({
-        id: team.id,
-        title: team.title,
-        teamName: team.team_name,
-        players: team.players.map(([name, position], index) => ({ id: `${team.id}-${index + 1}`, name, position })),
+      const existing = teamTemplates.find((item) => item.id === team.id);
+      const players = team.players.map(([name, position], index) => {
+        const previous = existing?.players?.find((player) => player.name === name && player.position === position);
+        return { id: previous?.id || `${team.id}-${index + 1}`, name, position };
       });
+      if (existing) {
+        if (JSON.stringify(existing.players) !== JSON.stringify(players) || existing.title !== team.title || existing.teamName !== team.team_name) changed = true;
+        Object.assign(existing, { title: team.title, teamName: team.team_name, players });
+      } else {
+        teamTemplates.push({ id: team.id, title: team.title, teamName: team.team_name, players });
+        changed = true;
+      }
     }
-    saveTeamTemplates();
-    localStorage.setItem(SV_TEAMS_SEEDED_KEY, "2026-27");
+    if (changed || localStorage.getItem(SV_TEAMS_SEEDED_KEY) !== "2026-27-v2") saveTeamTemplates();
+    localStorage.setItem(SV_TEAMS_SEEDED_KEY, "2026-27-v2");
   } catch (error) {
     console.warn("SVリーグのチーム名簿を読み込めませんでした", error);
   }
@@ -214,16 +219,31 @@ function awardPoint(winner) { if (game.finished) return; resolveRally(winner); p
 function undoPlay() {
   if (game.spikePending) game.spikePending = null;
   else if (game.pending.length) { game.pending.pop(); game.selected = null; }
-  else { showToast("取り消せるプレーがありません"); return; }
+  else {
+    const index = [...game.rallies].map((r, i) => [r, i]).reverse().find(([r]) => r.set === game.setNo)?.[1];
+    if (index == null) { showToast("取り消せるプレーがありません"); return; }
+    const [rally] = game.rallies.splice(index, 1);
+    game.scores[rally.winner] = Math.max(0, game.scores[rally.winner] - 1);
+    game.rallyNo = rally.number;
+    game.pending = clone(rally.plays || []).slice(0, -1);
+    game.pending.forEach((play) => { delete play.outcome; });
+    game.selected = null;
+  }
   persist("直前のプレーを取り消しました");
 }
 function undoRally() {
   const index = [...game.rallies].map((r, i) => [r, i]).reverse().find(([r]) => r.set === game.setNo)?.[1];
   if (index == null) { showToast("このセットに取り消せるラリーがありません"); return; }
   const [rally] = game.rallies.splice(index, 1); game.scores[rally.winner] = Math.max(0, game.scores[rally.winner] - 1);
-  game.pending = clone(rally.plays); game.rallyNo = rally.number; game.selected = null; persist("直前のラリーを取り消しました");
+  game.pending = []; game.rallyNo = rally.number; game.selected = null; game.spikePending = null; persist("直前のラリーとプレー記録を削除しました");
 }
 function eventRecord(type, team, detail = "") { game.events.push({ set: game.setNo, rally: game.rallyNo, team, type, detail }); }
+function changeCourtSides() {
+  if (game.finished) return;
+  game.courtSides = { A: game.courtSides.B, B: game.courtSides.A };
+  eventRecord("コートチェンジ", "A", `${teamName("A")}と${teamName("B")}がコートを入れ替え`);
+  persist("コートを入れ替えました");
+}
 
 function openTeamEditor() {
   openForm("チーム名を編集", `<label>Aチーム名</label><input name="teamA" required maxlength="24" value="${esc(game.teamNames.A)}"><label>Bチーム名</label><input name="teamB" required maxlength="24" value="${esc(game.teamNames.B)}">`, (data) => {
@@ -407,21 +427,24 @@ function openSavedMatch(id) {
 function deleteSavedMatch(id) { matches = matches.filter((m) => m.id !== id); saveMatches(); renderArchive(); renderSavedView(); renderHome(); showToast("保存した試合を削除しました"); }
 
 function renderLineups() {
-  $("lineups").innerHTML = ["A", "B"].map((team) => {
+  const courtOrder = ["A", "B"].sort((a, b) => (game.courtSides?.[a] === "right" ? 1 : 0) - (game.courtSides?.[b] === "right" ? 1 : 0));
+  $("lineups").innerHTML = courtOrder.map((team) => {
     const activeIds = game.activePlayerIds?.[team];
     // Older saved matches may not have a stored court lineup yet. Keep the
     // selection surface compact until the user chooses the exact six.
     const lineupPlayers = Array.isArray(activeIds)
       ? game.teams[team].filter((player) => activeIds.includes(player.id))
       : game.teams[team].slice(0, 6);
+    lineupPlayers.sort((a, b) => POSITIONS.indexOf(a.position) - POSITIONS.indexOf(b.position) || a.name.localeCompare(b.name, "ja"));
     const buttons = lineupPlayers.map((player) => {
       const active = game.selected?.player_id === player.id;
       return '<button class="player-choice ' + (active ? "selected" : "") + '" data-action="select" data-team="' + team + '" data-player-id="' + esc(player.id) + '" ' + (game.finished ? "disabled" : "") + '><span class="position">' + esc(player.position) + '</span><span class="player-name">' + esc(player.name) + "</span></button>";
     }).join("");
     return '<article class="team-card" data-team="' + team + '"><h3>' + esc(teamName(team)) + '</h3><div class="player-grid">' + buttons + "</div></article>";
   }).join("");
-  $("score-a").textContent = game.scores.A; $("score-b").textContent = game.scores.B; $("set-no").textContent = game.setNo; $("rally-no").textContent = String(game.rallyNo).padStart(3, "0");
-  $("team-label-a").textContent = teamName("A"); $("team-label-b").textContent = teamName("B");
+  const leftTeam = game.courtSides?.A === "left" ? "A" : "B", rightTeam = leftTeam === "A" ? "B" : "A";
+  $("score-a").textContent = game.scores[leftTeam]; $("score-b").textContent = game.scores[rightTeam]; $("set-no").textContent = game.setNo; $("rally-no").textContent = String(game.rallyNo).padStart(3, "0");
+  $("team-label-a").textContent = teamName(leftTeam); $("team-label-b").textContent = teamName(rightTeam);
 }
 function renderRosterEditor(target = "roster-editor") {
   const editor = $(target);
@@ -440,7 +463,8 @@ function renderRally() {
   const outcomeBox = $("spike-result"); outcomeBox.hidden = !game.spikePending;
   outcomeBox.textContent = game.spikePending ? `${game.spikePending.name}のスパイクを記録中。次のプレーか得点が記録されると結果を自動で判断します。` : "";
   $("rally-feed").innerHTML = game.pending.length ? game.pending.map((play, i) => `<div class="play-event"><span class="event-number">${String(i + 1).padStart(2, "0")}</span><span class="event-team">${esc(teamName(play.team))} · ${esc(play.position)} ${esc(play.player)}</span><span>${esc(play.play)}${play.outcome ? `（${esc(play.outcome)}）` : ""}</span></div>`).join("") : '<div class="empty-feed">このラリーのプレーはまだ記録されていません。</div>';
-  document.querySelector('[data-action="undo-play"]').disabled = game.finished || (!game.pending.length && !game.spikePending);
+  const undoableRally = game.rallies.some((rally) => rally.set === game.setNo);
+  document.querySelector('[data-action="undo-play"]').disabled = game.finished || (!game.pending.length && !game.spikePending && !undoableRally);
   document.querySelectorAll('[data-action="award"]').forEach((b) => { b.disabled = game.finished; b.textContent = `${teamName(b.dataset.team)}に得点`; });
   document.querySelectorAll('[data-action="timeout"]').forEach((b) => { b.disabled = game.finished; b.textContent = `⏱ ${teamName(b.dataset.team)} タイムアウト`; });
   document.querySelectorAll(".operation").forEach((b) => { if (!["new-match", "match-info", "team-names", "roster"].includes(b.dataset.action)) b.disabled = game.finished; });
@@ -571,6 +595,7 @@ document.addEventListener("click", (event) => {
   else if (action === "timeout") { eventRecord("タイムアウト", b.dataset.team); persist(`${teamName(b.dataset.team)}のタイムアウトを記録しました`); }
   else if (action === "substitution") openSubstitution();
   else if (action === "end-set") openSetEnd();
+  else if (action === "change-court") changeCourtSides();
   else if (action === "go-home") showView("home");
   else if (action === "home-new-match") openNewMatchSetup();
   else if (action === "home-saved") showView("saved");
@@ -750,3 +775,5 @@ if ("serviceWorker" in navigator && (location.protocol === "https:" || location.
 render();
 svTeamSeedPromise = seedSVLeagueTeams();
 svTeamSeedPromise.then(() => { renderTeamTemplates("home-team-templates"); renderHome(); });
+
+
