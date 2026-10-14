@@ -235,14 +235,22 @@ function openRosterEditor() {
 }
 function openParticipantSetup() {
   const group = (team) => {
-    const active = Array.isArray(game.activePlayerIds?.[team]) ? new Set(game.activePlayerIds[team]) : null;
-    const choices = game.teams[team].map((player) => '<label class="participant-option"><input type="checkbox" name="active' + team + '" value="' + esc(player.id) + '" ' + (!active || active.has(player.id) ? "checked" : "") + '><span><small>' + esc(player.position) + '</small>' + esc(player.name) + '</span></label>').join("");
+    const current = game.activePlayerIds?.[team];
+    const active = new Set(Array.isArray(current) ? current : game.teams[team].slice(0, 6).map((player) => player.id));
+    const choices = game.teams[team].map((player) => '<label class="participant-option"><input type="checkbox" name="active' + team + '" value="' + esc(player.id) + '" ' + (active.has(player.id) ? "checked" : "") + '><span><small>' + esc(player.position === "L" ? "L・リベロ" : player.position) + '</small>' + esc(player.name) + '</span></label>').join("");
     return '<fieldset class="participant-group"><legend>' + esc(teamName(team)) + '</legend><div class="participant-options">' + choices + '</div></fieldset>';
   };
-  const fields = '<p>試合に出ない選手のチェックを外してください。交代で出る選手はチェックを残します。</p><div class="participant-groups">' + group("A") + group("B") + '</div>';
-  openForm("試合に出る選手を選ぶ", fields, (data) => {
+  const fields = '<p>各チーム、リベロ以外を6人選び、リベロは追加で最大2人選べます。ベンチの選手は「選手交代」から出場させられます。</p><div class="participant-groups">' + group("A") + group("B") + '</div>';
+  openForm("コート上の選手を選ぶ", fields, (data) => {
     const selected = { A: data.getAll("activeA"), B: data.getAll("activeB") };
-    if (!selected.A.length || !selected.B.length) { showToast("A・B両チームから1人以上選んでください"); return false; }
+    for (const team of ["A", "B"]) {
+      const chosen = selected[team].map((id) => game.teams[team].find((player) => player.id === id)).filter(Boolean);
+      const nonLiberoCount = chosen.filter((player) => player.position !== "L").length;
+      const liberoCount = chosen.filter((player) => player.position === "L").length;
+      if (nonLiberoCount !== 6 || liberoCount > 2) {
+        showToast(teamName(team) + "はリベロ以外6人、リベロは最大2人にしてください"); return false;
+      }
+    }
     game.activePlayerIds = selected;
     if (game.selected && !selected[game.selected.team].includes(game.selected.player_id)) game.selected = null;
     persist("出場選手を設定しました");
@@ -290,25 +298,54 @@ function openMatchSettings() {
   });
 }
 function openSubstitution() {
-  const outgoing = ["A", "B"].flatMap((team) => {
-    const active = game.activePlayerIds?.[team];
-    return game.teams[team].filter((p) => !Array.isArray(active) || active.includes(p.id)).map((p) => '<option value="' + team + '|' + p.id + '">' + esc(teamName(team)) + " · " + esc(p.position) + " " + esc(p.name) + "</option>");
-  }).join("");
-  const positions = POSITIONS.map((p) => "<option>" + p + "</option>").join("");
-  const fields = '<label>交代する選手</label><select name="outgoing">' + outgoing + '</select><label>入る選手</label><input name="name" required maxlength="24" autocomplete="off"><label>ポジション</label><select name="position">' + positions + "</select>";
+  if (!["A", "B"].every((team) => Array.isArray(game.activePlayerIds?.[team]) && game.activePlayerIds[team].filter((id) => game.teams[team].some((p) => p.id === id && p.position !== "L")).length === 6)) {
+    showToast("先に両チームのコート選手を設定してください"); return;
+  }
+  const teamOptions = ["A", "B"].map((team) => '<option value="' + team + '">' + esc(teamName(team)) + '</option>').join("");
+  const fields = '<label>交代するチーム</label><select name="subTeam" id="substitution-team">' + teamOptions + '</select><label>交代の種類</label><select name="subMode" id="substitution-mode"><option value="regular">通常の選手交代</option><option value="libero-in">リベロをコートに入れる</option><option value="libero-out">リベロをベンチに下げる</option></select><div id="substitution-regular-fields"><label>コートから下がる選手</label><select name="outgoingId" id="substitution-outgoing"></select><label>ベンチから入る選手</label><select name="incomingId" id="substitution-incoming"></select></div><div id="substitution-libero-fields" hidden><label id="substitution-libero-label"></label><select name="liberoId" id="substitution-libero"></select></div>';
+  const updateOptions = (team, mode = "regular") => {
+    const active = new Set(game.activePlayerIds[team]);
+    const make = (player) => '<option value="' + esc(player.id) + '">' + esc(player.position) + ' ' + esc(player.name) + '</option>';
+    const regularFields = $("substitution-regular-fields"), liberoFields = $("substitution-libero-fields");
+    regularFields.hidden = mode !== "regular"; liberoFields.hidden = mode === "regular";
+    if (mode === "regular") {
+      const outgoing = game.teams[team].filter((player) => active.has(player.id) && player.position !== "L");
+      const incoming = game.teams[team].filter((player) => !active.has(player.id) && player.position !== "L");
+      $("substitution-outgoing").innerHTML = outgoing.map(make).join("");
+      $("substitution-incoming").innerHTML = incoming.length ? incoming.map(make).join("") : '<option value="">ベンチに選手がいません</option>';
+    } else {
+      const activeLiberoCount = game.teams[team].filter((player) => player.position === "L" && active.has(player.id)).length;
+      const liberos = game.teams[team].filter((player) => player.position === "L" && (mode === "libero-in" ? !active.has(player.id) : active.has(player.id)) && !(mode === "libero-in" && activeLiberoCount >= 2));
+      $("substitution-libero-label").textContent = mode === "libero-in" ? "ベンチから入るリベロ" : "ベンチに下がるリベロ";
+      $("substitution-libero").innerHTML = liberos.length ? liberos.map(make).join("") : '<option value="">' + (mode === "libero-in" ? (activeLiberoCount >= 2 ? "コート上のリベロは2人です" : "ベンチにリベロがいません") : "コート上にリベロがいません") + '</option>';
+    }
+  };
   openForm("選手交代", fields, (data) => {
-    const [team, outgoingId] = String(data.get("outgoing")).split("|");
-    const outgoingPlayer = game.teams[team].find((p) => p.id === outgoingId);
-    const name = String(data.get("name")).trim();
-    if (!name || !outgoingPlayer) return;
-    game.teams[team] = game.teams[team].filter((p) => p.id !== outgoingId);
-    const position = data.get("position");
-    const incoming = { id: createId(), name, position };
-    game.teams[team].push(incoming);
-    if (Array.isArray(game.activePlayerIds?.[team])) game.activePlayerIds[team].push(incoming.id);
-    eventRecord("選手交代", team, outgoingPlayer.position + " " + outgoingPlayer.name + " → " + position + " " + name);
+    const team = String(data.get("subTeam")), mode = String(data.get("subMode"));
+    const activeIds = game.activePlayerIds[team];
+    if (mode === "libero-in") {
+      const liberoId = String(data.get("liberoId")), player = game.teams[team].find((p) => p.id === liberoId && p.position === "L");
+      const activeLiberoCount = activeIds.filter((id) => game.teams[team].some((p) => p.id === id && p.position === "L")).length;
+      if (!player || activeIds.includes(liberoId) || activeLiberoCount >= 2) { showToast("リベロはコートに最大2人までです"); return false; }
+      activeIds.push(liberoId);
+      eventRecord("リベロ出場", team, player.name);
+    } else if (mode === "libero-out") {
+      const liberoId = String(data.get("liberoId")), player = game.teams[team].find((p) => p.id === liberoId && p.position === "L");
+      if (!player || !activeIds.includes(liberoId)) { showToast("ベンチに下げるリベロを選んでください"); return false; }
+      game.activePlayerIds[team] = activeIds.filter((id) => id !== liberoId);
+      eventRecord("リベロ交代", team, player.name + "がベンチへ");
+    } else {
+      const outgoingId = String(data.get("outgoingId")), incomingId = String(data.get("incomingId"));
+      const outgoingPlayer = game.teams[team].find((player) => player.id === outgoingId && player.position !== "L");
+      const incomingPlayer = game.teams[team].find((player) => player.id === incomingId && player.position !== "L");
+      if (!outgoingPlayer || !incomingPlayer || !activeIds.includes(outgoingId) || activeIds.includes(incomingId)) { showToast("交代する選手を選んでください"); return false; }
+      const index = activeIds.indexOf(outgoingId);
+      activeIds[index] = incomingId;
+      eventRecord("選手交代", team, outgoingPlayer.position + " " + outgoingPlayer.name + " → " + incomingPlayer.position + " " + incomingPlayer.name);
+    }
     persist(teamName(team) + "の選手を交代しました");
   });
+  updateOptions("A");
 }
 function endSet(winner) {
   game.setScores.push({ set: game.setNo, A: game.scores.A, B: game.scores.B, winner });
@@ -346,7 +383,6 @@ async function openNewMatchSetup() {
   };
   const fields = '<label>試合名</label><input name="matchName" maxlength="60" placeholder="例：練習試合・地区大会"><label>Aチーム（SVリーグ・保存チーム）</label><select name="templateA">' + options() + '</select><label>Bチーム（SVリーグ・保存チーム）</label><select name="templateB">' + options() + '</select>';
   openForm("新しい試合を始める", fields, (data) => {
-    const usesSVLeague = ["A", "B"].some((team) => String(data.get("template" + team)).startsWith("sv-2026-27-"));
     if (hasData()) archiveCurrent();
     game = freshGame();
     game.matchName = String(data.get("matchName")).trim() || "試合";
@@ -357,9 +393,10 @@ async function openNewMatchSetup() {
         game.teams[team] = template.players.map((player) => ({ ...clone(player), id: createId() }));
       }
     }
+    game.activePlayerIds = { A: [], B: [] };
     persist("新しい試合を始めました");
     showView("match");
-    if (usesSVLeague) openParticipantSetup();
+    window.setTimeout(openParticipantSetup, 0);
   }, "試合を始める");
 }
 function openSavedMatch(id) {
@@ -372,7 +409,11 @@ function deleteSavedMatch(id) { matches = matches.filter((m) => m.id !== id); sa
 function renderLineups() {
   $("lineups").innerHTML = ["A", "B"].map((team) => {
     const activeIds = game.activePlayerIds?.[team];
-    const lineupPlayers = Array.isArray(activeIds) ? game.teams[team].filter((player) => activeIds.includes(player.id)) : game.teams[team];
+    // Older saved matches may not have a stored court lineup yet. Keep the
+    // selection surface compact until the user chooses the exact six.
+    const lineupPlayers = Array.isArray(activeIds)
+      ? game.teams[team].filter((player) => activeIds.includes(player.id))
+      : game.teams[team].slice(0, 6);
     const buttons = lineupPlayers.map((player) => {
       const active = game.selected?.player_id === player.id;
       return '<button class="player-choice ' + (active ? "selected" : "") + '" data-action="select" data-team="' + team + '" data-player-id="' + esc(player.id) + '" ' + (game.finished ? "disabled" : "") + '><span class="position">' + esc(player.position) + '</span><span class="player-name">' + esc(player.name) + "</span></button>";
@@ -415,7 +456,11 @@ function renderStats(target = "stats-body", g = game) {
     const id = p.player_id || (p.team + "|" + p.position + "|" + p.player);
     if (!athletes.has(id)) athletes.set(id, { id, team: p.team, position: p.position, name: p.player });
   });
-  const rows = [...athletes.values()].sort((a, b) => a.team.localeCompare(b.team) || POSITIONS.indexOf(a.position) - POSITIONS.indexOf(b.position));
+  const playedIds = new Set(plays.map((play) => play.player_id).filter(Boolean));
+  const rows = [...athletes.values()].filter((athlete) => {
+    const active = g.activePlayerIds?.[athlete.team];
+    return !Array.isArray(active) || active.includes(athlete.id) || playedIds.has(athlete.id);
+  }).sort((a, b) => a.team.localeCompare(b.team) || POSITIONS.indexOf(a.position) - POSITIONS.indexOf(b.position));
   $(target).innerHTML = rows.map((a) => {
     const mine = plays.filter((p) => p.player_id ? p.player_id === a.id : p.team === a.team && p.position === a.position && p.player === a.name);
     const attacks = mine.filter((p) => p.play === "スパイク" && ["得点", "継続", "ミス"].includes(p.outcome));
@@ -638,7 +683,24 @@ function rallyEditFields(index, selectedPlayIndex = 0) {
   return `<div id="rally-edit-fields"><label>修正するラリー</label><select name="index" data-edit-rally-select>${rallyOptions}</select><label>得点チーム</label><select name="winner">${winnerOptions}</select>${playFields}</div>`;
 }
 formContent.addEventListener("change", (event) => {
-  if (event.target.matches("[data-edit-rally-select]")) {
+  if (event.target.id === "substitution-team" || event.target.id === "substitution-mode") {
+    const team = $("substitution-team").value, mode = $("substitution-mode").value;
+    const active = new Set(game.activePlayerIds[team]);
+    const make = (player) => '<option value="' + esc(player.id) + '">' + esc(player.position) + ' ' + esc(player.name) + '</option>';
+    const regularFields = $("substitution-regular-fields"), liberoFields = $("substitution-libero-fields");
+    regularFields.hidden = mode !== "regular"; liberoFields.hidden = mode === "regular";
+    if (mode === "regular") {
+      const outgoing = game.teams[team].filter((player) => active.has(player.id) && player.position !== "L");
+      const incoming = game.teams[team].filter((player) => !active.has(player.id) && player.position !== "L");
+      $("substitution-outgoing").innerHTML = outgoing.map(make).join("");
+      $("substitution-incoming").innerHTML = incoming.length ? incoming.map(make).join("") : '<option value="">ベンチに選手がいません</option>';
+    } else {
+      const activeLiberoCount = game.teams[team].filter((player) => player.position === "L" && active.has(player.id)).length;
+      const liberos = game.teams[team].filter((player) => player.position === "L" && (mode === "libero-in" ? !active.has(player.id) : active.has(player.id)) && !(mode === "libero-in" && activeLiberoCount >= 2));
+      $("substitution-libero-label").textContent = mode === "libero-in" ? "ベンチから入るリベロ" : "ベンチに下がるリベロ";
+      $("substitution-libero").innerHTML = liberos.length ? liberos.map(make).join("") : '<option value="">' + (mode === "libero-in" ? (activeLiberoCount >= 2 ? "コート上のリベロは2人です" : "ベンチにリベロがいません") : "コート上にリベロがいません") + '</option>';
+    }
+  } else if (event.target.matches("[data-edit-rally-select]")) {
     const wrapper = $("rally-edit-fields"); if (wrapper) wrapper.outerHTML = rallyEditFields(Number(event.target.value));
   } else if (event.target.name === "playIndex") {
     const indexEl = formContent.querySelector("[data-edit-rally-select]");
