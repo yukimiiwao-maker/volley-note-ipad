@@ -80,12 +80,23 @@ let toastTimer;
 let confirmAction = null;
 let formAction = null;
 let svTeamSeedPromise = null;
+let selectedSavedTeamId = null;
 const confirmDialog = $("confirm-dialog");
 const formDialog = $("form-dialog");
 const formContent = $("form-content");
 
 function esc(value) { return String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]); }
 function teamName(team) { return game.teamNames?.[team] || `${team}チーム`; }
+function teamCategory(item) { return item.category === "その他" && item.categoryCustom ? item.categoryCustom : item.category || (item.id?.startsWith("sv-2026-27-") ? "SVリーグ" : "その他"); }
+function updateCustomCategoryField(scope) {
+  const select = scope.querySelector('[name="category"]');
+  const wrapper = scope.querySelector("[data-custom-category-wrap]");
+  const input = scope.querySelector('[name="categoryCustom"]');
+  if (!select || !wrapper || !input) return;
+  const visible = select.value === "その他";
+  wrapper.hidden = !visible;
+  input.required = visible;
+}
 function showView(view) {
   $("home-view").hidden = view !== "home";
   $("team-view").hidden = view !== "teams";
@@ -111,15 +122,16 @@ async function seedSVLeagueTeams() {
     let changed = false;
     for (const team of SV_LEAGUE_CATALOG) {
       const existing = teamTemplates.find((item) => item.id === team.id);
-      const players = team.players.map(([name, position], index) => {
+      const players = existing?.customized ? existing.players : team.players.map(([name, position], index) => {
         const previous = existing?.players?.find((player) => player.name === name && player.position === position);
         return { id: previous?.id || `${team.id}-${index + 1}`, name, position };
       });
       if (existing) {
-        if (JSON.stringify(existing.players) !== JSON.stringify(players) || existing.title !== team.title || existing.teamName !== team.team_name) changed = true;
-        Object.assign(existing, { title: team.title, teamName: team.team_name, players });
+        if (JSON.stringify(existing.players) !== JSON.stringify(players) || (!existing.customized && (existing.title !== team.title || existing.teamName !== team.team_name || existing.category !== "SVリーグ"))) changed = true;
+        if (existing.customized && !existing.category) { existing.category = "SVリーグ"; changed = true; }
+        if (!existing.customized) Object.assign(existing, { title: team.title, teamName: team.team_name, category: "SVリーグ", players });
       } else {
-        teamTemplates.push({ id: team.id, title: team.title, teamName: team.team_name, players });
+        teamTemplates.push({ id: team.id, title: team.title, teamName: team.team_name, category: "SVリーグ", players });
         changed = true;
       }
     }
@@ -289,8 +301,9 @@ function saveTeamTemplate(team) {
   openForm(teamName(team) + "を保存", '<label>保存名</label><input name="title" required maxlength="40" value="' + esc(teamName(team)) + '">', (data) => {
     const title = String(data.get("title")).trim();
     if (!title) return;
-    teamTemplates.push({ id: createId(), title, teamName: teamName(team), players: clone(game.teams[team]) });
-    saveTeamTemplates(); renderTeamTemplates("home-team-templates"); showToast("チームを保存しました");
+    const item = { id: createId(), title, teamName: teamName(team), category: "その他", players: clone(game.teams[team]), customized: true };
+    teamTemplates.push(item); selectedSavedTeamId = item.id;
+    saveTeamTemplates(); renderTeamTemplates("home-team-templates"); renderTeamLibrary(); showToast("チームを保存しました");
   });
 }
 function loadTeamTemplate(templateId, team) {
@@ -311,6 +324,25 @@ function renderTeamTemplates(target = "team-templates") {
   const select = (team) => '<select aria-label="保存チーム" id="team-template-' + team + '"><option value="">保存チームを選択</option>' + teamTemplates.map((item) => '<option value="' + esc(item.id) + '">' + esc(item.title) + '</option>').join("") + '</select><button class="button button-quiet" data-action="load-team" data-team="' + team + '">このチームに読み込む</button>';
   const element = $(target);
   if (element) element.innerHTML = ["A", "B"].map((team) => '<article class="team-card"><h3>' + esc(teamName(team)) + '</h3><button class="button button-primary" data-action="save-team" data-team="' + team + '">現在のチームを保存</button><div class="template-load">' + select(team) + '</div></article>').join("") + (teamTemplates.length ? '<div class="template-list">' + [...teamTemplates].reverse().map((item) => '<div><span>' + esc(item.title) + ' · ' + esc(item.players.length) + '人</span><button class="button button-error" data-action="delete-team-template" data-id="' + esc(item.id) + '">削除</button></div>').join("") + '</div>' : '<p class="empty-feed">保存したチームはありません。</p>');
+}
+function renderTeamLibrary() {
+  const list = $("saved-team-list"), editor = $("saved-team-editor");
+  if (!list || !editor) return;
+  if (!teamTemplates.some((item) => item.id === selectedSavedTeamId)) selectedSavedTeamId = null;
+  const categoryOrder = ["SVリーグ", "大学", "高校", "中学", "その他"];
+  const categories = [...new Set([...categoryOrder.filter((category) => teamTemplates.some((item) => teamCategory(item) === category)), ...teamTemplates.map(teamCategory).filter((category) => !categoryOrder.includes(category))])];
+  list.innerHTML = teamTemplates.length ? categories.map((category) => {
+    const grouped = teamTemplates.filter((item) => teamCategory(item) === category).sort((a, b) => a.title.localeCompare(b.title, "ja"));
+    return `<section class="saved-team-category"><h2>${esc(category)} <small>${grouped.length}チーム</small></h2><div class="saved-team-grid">${grouped.map((item) => `<button class="saved-team-card ${item.id === selectedSavedTeamId ? "selected" : ""}" data-action="select-saved-team" data-id="${esc(item.id)}"><strong>${esc(item.title)}</strong><small>${esc(item.players.length)}人登録</small><span>›</span></button>`).join("")}</div></section>`;
+  }).join("") : '<p class="empty-feed">チームはまだありません。「新しいチームを作る」から登録できます。</p>';
+  const item = teamTemplates.find((entry) => entry.id === selectedSavedTeamId);
+  if (!item) { editor.innerHTML = '<p class="empty-feed saved-team-hint">チームを選択すると、選手一覧がここに表示されます。</p>'; return; }
+  const positions = (current) => POSITIONS.map((position) => `<option ${current === position ? "selected" : ""}>${position}</option>`).join("");
+  const rows = item.players.map((player) => `<form class="roster-row saved-player-row" data-saved-player-form data-team-id="${esc(item.id)}" data-player-id="${esc(player.id)}"><input name="name" aria-label="選手名" value="${esc(player.name)}" maxlength="24" required><select name="position" aria-label="ポジション">${positions(player.position)}</select><button class="button button-quiet" type="submit">保存</button><button class="button button-error" type="button" data-action="remove-saved-player" data-team-id="${esc(item.id)}" data-player-id="${esc(player.id)}">削除</button></form>`).join("");
+  const category = item.category || (item.id?.startsWith("sv-2026-27-") ? "SVリーグ" : "その他");
+  const categoryOptions = ["SVリーグ", "大学", "高校", "中学", "その他"].map((entry) => `<option ${category === entry ? "selected" : ""}>${entry}</option>`).join("");
+  editor.innerHTML = `<article class="saved-team-editor team-card"><div class="saved-team-editor-heading"><h2>${esc(item.title)}</h2><button class="button button-error" data-action="delete-team-template" data-id="${esc(item.id)}">チームを削除</button></div><form class="saved-team-name-form" data-saved-team-form data-id="${esc(item.id)}"><label>チーム名</label><input name="title" value="${esc(item.title)}" maxlength="40" required><label>分類</label><select name="category">${categoryOptions}</select><div class="custom-category-field" data-custom-category-wrap ${category === "その他" ? "" : "hidden"}><label>分類名</label><input name="categoryCustom" value="${esc(item.categoryCustom || "")}" maxlength="40" placeholder="例：クラブチーム"></div><button class="button button-quiet" type="submit">チーム情報を保存</button></form><div class="saved-player-list">${rows || '<p class="empty-feed">選手が登録されていません。</p>'}</div><button class="button button-primary" data-action="add-saved-player" data-id="${esc(item.id)}">＋ 選手を追加</button></article>`;
+  updateCustomCategoryField(editor);
 }
 function openMatchSettings() {
   openForm("試合情報", `<label>試合名</label><input name="matchName" maxlength="60" value="${esc(game.matchName)}"><label>試合メモ</label><textarea name="matchNote" rows="5" maxlength="1500">${esc(game.matchNote)}</textarea>`, (data) => {
@@ -394,12 +426,16 @@ function startNewMatch() { openNewMatchSetup(); }
 async function openNewMatchSetup() {
   if (svTeamSeedPromise) await svTeamSeedPromise;
   const options = () => {
-    const league = teamTemplates.filter((item) => item.id?.startsWith("sv-2026-27-"));
-    const saved = teamTemplates.filter((item) => !item.id?.startsWith("sv-2026-27-"));
+    const league = teamTemplates.filter((item) => teamCategory(item) === "SVリーグ");
+    const saved = teamTemplates.filter((item) => teamCategory(item) !== "SVリーグ");
     const option = (item) => '<option value="' + esc(item.id) + '">' + esc(item.title) + '</option>';
+    const categories = [...new Set(saved.map(teamCategory))].sort((a, b) => {
+      const order = ["大学", "高校", "中学", "その他"];
+      return (order.indexOf(a) < 0 ? order.length : order.indexOf(a)) - (order.indexOf(b) < 0 ? order.length : order.indexOf(b));
+    });
     return '<option value="">初期名簿を使う</option>'
       + (league.length ? '<optgroup label="2026-27 男子SVリーグ">' + league.map(option).join("") + '</optgroup>' : "")
-      + (saved.length ? '<optgroup label="保存したチーム">' + saved.map(option).join("") + '</optgroup>' : "");
+      + categories.map((category) => '<optgroup label="' + esc(category) + '">' + saved.filter((item) => teamCategory(item) === category).map(option).join("") + '</optgroup>').join("");
   };
   const fields = '<label>試合名</label><input name="matchName" maxlength="60" placeholder="例：練習試合・地区大会"><label>Aチーム（SVリーグ・保存チーム）</label><select name="templateA">' + options() + '</select><label>Bチーム（SVリーグ・保存チーム）</label><select name="templateB">' + options() + '</select>';
   openForm("新しい試合を始める", fields, (data) => {
@@ -580,7 +616,7 @@ function renderSavedView() {
   renderStats("aggregate-stats-body", aggregateStatsGame(matches, true));
 }
 function render() {
-  renderLineups(); renderRosterEditor("home-roster-editor"); renderTeamTemplates("home-team-templates"); renderRally(); renderStats(); renderHistory(); renderArchive(); renderHome(); renderSavedView();
+  renderLineups(); renderRosterEditor("home-roster-editor"); renderTeamTemplates("home-team-templates"); renderTeamLibrary(); renderRally(); renderStats(); renderHistory(); renderArchive(); renderHome(); renderSavedView();
   $("network-label").textContent = offlineReady ? (navigator.onLine ? "オフライン利用の準備OK" : "オフライン · 端末に保存") : "オフライン利用を準備中";
 }
 
@@ -600,6 +636,28 @@ document.addEventListener("click", (event) => {
   else if (action === "home-new-match") openNewMatchSetup();
   else if (action === "home-saved") showView("saved");
   else if (action === "home-teams") showView("teams");
+  else if (action === "new-saved-team") {
+    openForm("新しいチームを作る", '<label>チーム名</label><input name="teamName" required maxlength="40" placeholder="例：〇〇高校"><label>分類</label><select name="category"><option>大学</option><option>高校</option><option>中学</option><option>その他</option></select><div class="custom-category-field" data-custom-category-wrap hidden><label>分類名</label><input name="categoryCustom" maxlength="40" placeholder="例：クラブチーム"></div><p>作成後、1番〜14番の仮選手が登録されます。名前とポジションはあとから編集できます。</p>', (data) => {
+      const name = String(data.get("teamName")).trim(), category = String(data.get("category"));
+      const categoryCustom = String(data.get("categoryCustom") || "").trim();
+      if (!name || (category === "その他" && !categoryCustom)) { showToast("その他を選んだ場合は分類名を入力してください"); return false; }
+      const item = { id: createId(), title: name, teamName: name, category, categoryCustom: category === "その他" ? categoryCustom : "", players: Array.from({ length: 14 }, (_, index) => ({ id: createId(), name: `${index + 1}番`, position: DEFAULT_ROLES[index % DEFAULT_ROLES.length] })), customized: true };
+      teamTemplates.push(item); selectedSavedTeamId = item.id; saveTeamTemplates(); renderTeamLibrary(); showToast("チームを作成しました。仮選手の名前とポジションを編集できます");
+    }, "作成する");
+    updateCustomCategoryField(formContent);
+  }
+  else if (action === "select-saved-team") { selectedSavedTeamId = b.dataset.id; renderTeamLibrary(); }
+  else if (action === "add-saved-player") {
+    const item = teamTemplates.find((entry) => entry.id === b.dataset.id);
+    if (item) openForm(item.title + "に選手を追加", '<label>選手名</label><input name="name" required maxlength="24" autocomplete="off"><label>ポジション</label><select name="position">' + POSITIONS.map((position) => '<option>' + position + '</option>').join("") + '</select>', (data) => {
+      const name = String(data.get("name")).trim(); if (!name) return false;
+      item.players.push({ id: createId(), name, position: String(data.get("position")) }); item.customized = true; saveTeamTemplates(); renderTeamLibrary(); showToast("選手を追加しました");
+    }, "追加する");
+  }
+  else if (action === "remove-saved-player") showConfirm("選手を削除", "このチームから選手を削除しますか？", () => {
+    const item = teamTemplates.find((entry) => entry.id === b.dataset.teamId);
+    if (item) { item.players = item.players.filter((player) => player.id !== b.dataset.playerId); item.customized = true; saveTeamTemplates(); renderTeamLibrary(); showToast("選手を削除しました"); }
+  }, "削除");
   else if (action === "set-participants") openParticipantSetup();
   else if (action === "create-folder") openForm("試合フォルダーを作る", '<label>フォルダー名</label><input name="folderName" required maxlength="40" placeholder="例：2026秋季大会">', (data) => {
     const name = String(data.get("folderName")).trim();
@@ -638,7 +696,7 @@ document.addEventListener("click", (event) => {
     if (select?.value) showConfirm("保存チームを読み込む", teamName(b.dataset.team) + "の現在の名簿を保存したチームで置き換えます。過去のプレー記録は残ります。", () => loadTeamTemplate(select.value, b.dataset.team), "読み込む");
     else showToast("読み込む保存チームを選んでください");
   }
-  else if (action === "delete-team-template") showConfirm("保存チームを削除", "「" + (teamTemplates.find((item) => item.id === b.dataset.id)?.title || "") + "」を削除しますか？", () => { teamTemplates = teamTemplates.filter((item) => item.id !== b.dataset.id); saveTeamTemplates(); renderTeamTemplates("home-team-templates"); showToast("保存チームを削除しました"); }, "削除");
+  else if (action === "delete-team-template") showConfirm("保存チームを削除", "「" + (teamTemplates.find((item) => item.id === b.dataset.id)?.title || "") + "」を削除しますか？", () => { teamTemplates = teamTemplates.filter((item) => item.id !== b.dataset.id); if (selectedSavedTeamId === b.dataset.id) selectedSavedTeamId = null; saveTeamTemplates(); renderTeamTemplates("home-team-templates"); renderTeamLibrary(); showToast("保存チームを削除しました"); }, "削除");
   else if (action === "team-names") openTeamEditor();
   else if (action === "match-info") openMatchSettings();
   else if (action === "finish-match") showConfirm("試合を終了", "試合を終了して、この端末の保存試合に追加しますか？", finishMatch, "試合を終了");
@@ -652,6 +710,27 @@ document.addEventListener("click", (event) => {
 });
 
 document.addEventListener("submit", (event) => {
+  const savedTeamForm = event.target.closest("[data-saved-team-form]");
+  if (savedTeamForm) {
+    event.preventDefault();
+    const item = teamTemplates.find((entry) => entry.id === savedTeamForm.dataset.id);
+    const data = new FormData(savedTeamForm), name = String(data.get("title")).trim();
+    if (!item || !name) return;
+    const category = String(data.get("category") || item.category || "その他"), categoryCustom = String(data.get("categoryCustom") || "").trim();
+    if (category === "その他" && !categoryCustom) { showToast("その他を選んだ場合は分類名を入力してください"); updateCustomCategoryField(savedTeamForm); return; }
+    item.title = name; item.teamName = name; item.category = category; item.categoryCustom = category === "その他" ? categoryCustom : ""; item.customized = true; saveTeamTemplates(); renderTeamLibrary(); renderTeamTemplates("home-team-templates"); showToast("チーム情報を保存しました");
+    return;
+  }
+  const savedPlayerForm = event.target.closest("[data-saved-player-form]");
+  if (savedPlayerForm) {
+    event.preventDefault();
+    const item = teamTemplates.find((entry) => entry.id === savedPlayerForm.dataset.teamId);
+    const player = item?.players.find((entry) => entry.id === savedPlayerForm.dataset.playerId);
+    const data = new FormData(savedPlayerForm), name = String(data.get("name")).trim();
+    if (!item || !player || !name) return;
+    player.name = name; player.position = String(data.get("position")); item.customized = true; saveTeamTemplates(); renderTeamLibrary(); showToast("選手情報を保存しました");
+    return;
+  }
   const teamNameForm = event.target.closest("[data-team-name-form]");
   if (teamNameForm) {
     event.preventDefault();
@@ -678,6 +757,7 @@ document.addEventListener("submit", (event) => {
 });
 
 document.addEventListener("change", (event) => {
+  if (event.target.matches('[name="category"]')) { updateCustomCategoryField(event.target.form); return; }
   const select = event.target.closest("[data-folder-match]");
   if (!select) return;
   const match = matches.find((item) => item.id === select.dataset.folderMatch);
@@ -774,6 +854,6 @@ if ("serviceWorker" in navigator && (location.protocol === "https:" || location.
 }
 render();
 svTeamSeedPromise = seedSVLeagueTeams();
-svTeamSeedPromise.then(() => { renderTeamTemplates("home-team-templates"); renderHome(); });
+svTeamSeedPromise.then(() => { renderTeamTemplates("home-team-templates"); renderTeamLibrary(); renderHome(); });
 
 

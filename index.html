@@ -32,9 +32,10 @@
 
   <section id="team-view" class="home-subview" hidden>
     <div class="home-subheading"><button class="text-button" data-action="go-home">‹ ホーム</button><h1>チームを作る・確認する</h1></div>
-    <p class="formula">選手を追加してポジションを設定し、チームを保存できます。</p>
-    <div id="home-roster-editor" class="team-lineups"></div>
-    <details class="roster-management" open><summary>保存したチーム</summary><p class="formula">2026-27男子SVリーグの全12チームを登録済みです。保存チームから選ぶと試合に読み込めます。名簿は<a href="https://japanvolleydb.com/teams?category=SV&amp;gender=M&amp;lang=ja" target="_blank" rel="noopener">Japan Volleyball Data Bank</a>の公開情報をもとにしています。</p><div id="home-team-templates" class="team-lineups"></div></details>
+    <button class="button button-primary new-team-button" data-action="new-saved-team">＋ 新しいチームを作る</button>
+    <p class="formula">SVリーグ・大学・高校などの分類ごとにチームを管理できます。チームを選ぶと、登録選手とポジションを確認・編集できます。</p>
+    <details class="roster-management" open><summary>保存されたチーム</summary><p class="formula">2026-27男子SVリーグの名簿も登録済みです。SVリーグのチームは<a href="https://japanvolleydb.com/teams?category=SV&amp;gender=M&amp;lang=ja" target="_blank" rel="noopener">Japan Volleyball Data Bank</a>の公開情報をもとにしています。</p><div id="saved-team-list" class="saved-team-list"></div></details>
+    <div id="saved-team-editor"></div>
   </section>
 
   <section id="saved-view" class="home-subview" hidden>
