@@ -81,6 +81,7 @@ let confirmAction = null;
 let formAction = null;
 let svTeamSeedPromise = null;
 let selectedSavedTeamId = null;
+let openSetHistoryAfterUpdate = false;
 const confirmDialog = $("confirm-dialog");
 const formDialog = $("form-dialog");
 const formContent = $("form-content");
@@ -402,7 +403,7 @@ function openSubstitution() {
 function endSet(winner) {
   game.setScores.push({ set: game.setNo, A: game.scores.A, B: game.scores.B, winner });
   eventRecord("セット終了", winner, `${teamName("A")} ${game.scores.A} - ${game.scores.B} ${teamName("B")}`);
-  game.setNo += 1; game.scores = { A: 0, B: 0 }; game.rallyNo = 1; game.pending = []; game.selected = null; game.spikePending = null; persist(`${teamName(winner)}がセットを獲得しました`);
+  game.setNo += 1; game.scores = { A: 0, B: 0 }; game.rallyNo = 1; game.pending = []; game.selected = null; game.spikePending = null; openSetHistoryAfterUpdate = true; persist(`${teamName(winner)}がセットを獲得しました`);
 }
 function openSetEnd() {
   openForm("セット終了", `<label>セットを取ったチーム</label><select name="winner"><option value="A">${esc(teamName("A"))}</option><option value="B">${esc(teamName("B"))}</option></select>`, (data) => endSet(data.get("winner")), "セットを終了");
@@ -540,6 +541,24 @@ function renderHistory() {
   ];
   $("history-count").textContent = rows.length; $("history-list").innerHTML = rows.length ? rows.reverse().join("") : '<div class="history-row">まだ記録はありません。</div>';
 }
+function renderSetHistory() {
+  const section = $("set-history-section"), list = $("set-history-list");
+  if (!section || !list) return;
+  const completed = game.setScores || [];
+  $("set-history-count").textContent = completed.length ? `${completed.length}セット終了` : "セット終了後に表示";
+  section.hidden = !completed.length;
+  list.innerHTML = completed.length ? completed.map((set) => {
+    let a = 0, b = 0;
+    const rallies = game.rallies.filter((rally) => rally.set === set.set).sort((x, y) => x.number - y.number);
+    const rows = rallies.map((rally) => {
+      if (rally.winner === "A") a += 1; else if (rally.winner === "B") b += 1;
+      const sequence = (rally.plays || []).map((play) => `${teamName(play.team)} ${play.position || ""} ${play.player || play.name || "選手"}の${play.play}${play.outcome ? `（${play.outcome}）` : ""}`).join(" → ");
+      return `<div class="set-point-row"><strong>Rally ${String(rally.number).padStart(3, "0")} · ${a} - ${b}</strong><span>${esc(teamName(rally.winner))}に得点</span><small>${sequence ? esc(sequence) : "プレー記録なし（得点ボタンで記録）"}</small></div>`;
+    }).join("");
+    return `<section class="set-history-card"><h3>第${set.set}セット · ${set.A} - ${set.B}</h3>${rows || '<p class="empty-feed">このセットのラリー記録はありません。</p>'}</section>`;
+  }).join("") : '<p class="empty-feed">セットを終了すると、得点履歴がここに表示されます。</p>';
+  if (openSetHistoryAfterUpdate && completed.length) { section.open = true; openSetHistoryAfterUpdate = false; }
+}
 function renderArchive() {
   $("saved-count").textContent = matches.length;
   $("saved-matches").innerHTML = matches.length ? [...matches].reverse().map((item) => {
@@ -598,25 +617,24 @@ function renderSavedView() {
     const m = item.game || {}, names = m.teamNames || {}, scores = m.scores || {};
     const sets = (m.setScores || []).map((s) => "第" + s.set + "セット " + s.A + "-" + s.B).join(" · ");
     const options = folderOptions.replace('value="' + esc(item.folderId || "") + '"', 'value="' + esc(item.folderId || "") + '" selected');
-    return '<article class="saved-match"><div><strong>' + esc(item.title || "試合") + '</strong><small>' + esc(names.A || "Aチーム") + ' ' + esc(scores.A || 0) + ' - ' + esc(scores.B || 0) + ' ' + esc(names.B || "Bチーム") + (sets ? ' · ' + sets : "") + '</small></div><label class="folder-move-label">保存先<select data-folder-match="' + esc(item.id) + '">' + options + '</select></label><div class="saved-actions"><button class="button button-primary" data-action="open-match" data-id="' + esc(item.id) + '">試合を開く</button><button class="button button-error" data-action="delete-match" data-id="' + esc(item.id) + '">削除</button></div><details><summary>この試合の選手成績</summary><div class="table-scroll"><table><thead><tr><th>チーム</th><th>選手</th><th>試行</th><th>得点</th><th>ミス</th><th>決定率</th><th>攻撃効率</th><th>サーブ効果率</th><th>ブロック</th><th>返球率</th></tr></thead><tbody id="folder-match-stats-' + esc(item.id) + '"></tbody></table></div></details></article>';
+    return '<details class="saved-match"><summary><strong>' + esc(item.title || "試合") + '</strong><small>' + esc(names.A || "Aチーム") + ' ' + esc(scores.A || 0) + ' - ' + esc(scores.B || 0) + ' ' + esc(names.B || "Bチーム") + (sets ? ' · ' + sets : "") + '</small><small>開いて選手成績を確認</small></summary><label class="folder-move-label">保存先<select data-folder-match="' + esc(item.id) + '">' + options + '</select></label><div class="saved-actions"><button class="button button-primary" data-action="open-match" data-id="' + esc(item.id) + '">試合を開く</button><button class="button button-error" data-action="delete-match" data-id="' + esc(item.id) + '">削除</button></div><div class="table-scroll"><table><thead><tr><th>チーム</th><th>選手</th><th>試行</th><th>得点</th><th>ミス</th><th>決定率</th><th>攻撃効率</th><th>サーブ効果率</th><th>ブロック</th><th>返球率</th></tr></thead><tbody id="folder-match-stats-' + esc(item.id) + '"></tbody></table></div></details>';
   };
   $("home-archive-list").innerHTML = ordered.length || matchFolders.length ? groups.map((group) => {
     const groupMatches = ordered.filter((item) => (item.folderId || "") === group.id);
     if (!groupMatches.length && !group.id) return "";
     const statsId = group.id ? 'folder-stats-' + esc(group.id) : "";
-    const statsBlock = group.id ? '<details class="folder-stats"><summary>📊 フォルダー内の選手成績</summary><div class="table-scroll"><table><thead><tr><th>チーム</th><th>選手</th><th>試行</th><th>得点</th><th>ミス</th><th>決定率</th><th>攻撃効率</th><th>サーブ効果率</th><th>ブロック</th><th>返球率</th></tr></thead><tbody id="' + statsId + '"></tbody></table></div></details>' : "";
+    const statsBlock = group.id ? '<div class="folder-stats"><strong>📊 フォルダー内の選手成績</strong><div class="table-scroll"><table><thead><tr><th>チーム</th><th>選手</th><th>試行</th><th>得点</th><th>ミス</th><th>決定率</th><th>攻撃効率</th><th>サーブ効果率</th><th>ブロック</th><th>返球率</th></tr></thead><tbody id="' + statsId + '"></tbody></table></div></div>' : "";
     const folderTools = group.id ? '<div class="folder-tools"><button class="button button-quiet" data-action="rename-folder" data-id="' + esc(group.id) + '">名前を変更</button><button class="button button-error" data-action="delete-folder" data-id="' + esc(group.id) + '">フォルダーを削除</button></div>' : "";
-    return '<details class="match-folder" open><summary>📁 ' + esc(group.name) + ' · ' + groupMatches.length + '試合</summary>' + folderTools + statsBlock + (groupMatches.length ? groupMatches.map(matchCard).join("") : '<p class="empty-feed">このフォルダーは空です。</p>') + '</details>';
+    return '<details class="match-folder"><summary>📁 ' + esc(group.name) + ' · ' + groupMatches.length + '試合 <small>開いて成績を見る</small></summary>' + folderTools + statsBlock + (groupMatches.length ? groupMatches.map(matchCard).join("") : '<p class="empty-feed">このフォルダーは空です。</p>') + '</details>';
   }).join("") : '<p class="empty-feed">保存した試合はありません。</p>';
   matchFolders.forEach((folder) => {
     const target = $("folder-stats-" + folder.id);
     if (target) renderStats(target.id, aggregateStatsGame(ordered.filter((item) => item.folderId === folder.id), false));
   });
   ordered.forEach((item) => { const target = $("folder-match-stats-" + item.id); if (target) renderStats(target.id, item.game); });
-  renderStats("aggregate-stats-body", aggregateStatsGame(matches, true));
 }
 function render() {
-  renderLineups(); renderRosterEditor("home-roster-editor"); renderTeamTemplates("home-team-templates"); renderTeamLibrary(); renderRally(); renderStats(); renderHistory(); renderArchive(); renderHome(); renderSavedView();
+  renderLineups(); renderRosterEditor("home-roster-editor"); renderTeamTemplates("home-team-templates"); renderTeamLibrary(); renderRally(); renderStats(); renderHistory(); renderSetHistory(); renderArchive(); renderHome(); renderSavedView();
   $("network-label").textContent = offlineReady ? (navigator.onLine ? "オフライン利用の準備OK" : "オフライン · 端末に保存") : "オフライン利用を準備中";
 }
 

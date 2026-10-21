@@ -43,7 +43,6 @@
     <button class="button button-primary" data-action="create-folder">＋ フォルダーを作る</button>
     <p class="formula">試合カードの保存先を選ぶと、フォルダーにまとめられます。フォルダー内の成績も確認できます。</p>
     <div id="home-archive-list"></div>
-    <section class="stats-section aggregate-section"><div class="section-heading"><div><span class="step">ALL</span><h2>全試合の選手成績</h2></div></div><div class="table-scroll"><table><thead><tr><th>チーム</th><th>選手</th><th>スパイク試行</th><th>得点</th><th>ミス</th><th>決定率</th><th>攻撃効率</th><th>サーブ効果率</th><th>ブロック</th><th>レシーブ返球率</th></tr></thead><tbody id="aggregate-stats-body"></tbody></table></div><p class="formula">保存試合と進行中の試合を合算しています。</p></section>
   </section>
 
   <main id="match-view" hidden>
@@ -52,6 +51,8 @@
       <div class="set-current"><small>SET</small><strong id="set-no">1</strong></div>
       <div class="score-team"><span id="team-label-b">Bチーム</span><strong id="score-b">0</strong></div>
     </section>
+
+    <details id="set-history-section" class="history-section set-history-section"><summary>セット別の得点履歴 <span id="set-history-count">0</span></summary><div id="set-history-list"></div></details>
 
     <section class="lineups">
       <div class="section-heading"><div><span class="step">01</span><h1>コート上の選手</h1></div><div><button class="text-button" data-action="set-participants">コート選手を設定</button><button class="text-button" data-action="team-names">チーム名</button><button class="text-button" data-action="edit-roster">選手登録・ポジション</button></div></div>
