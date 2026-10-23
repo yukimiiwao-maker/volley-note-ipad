@@ -538,12 +538,14 @@ function renderRally() {
   document.querySelector('[data-action="undo-play"]').disabled = game.finished || (!game.pending.length && !game.spikePending && !undoableRally);
   const leftTeam = game.courtSides?.A === "left" ? "A" : "B";
   const rightTeam = leftTeam === "A" ? "B" : "A";
-  document.querySelectorAll('[data-action="award"]').forEach((b, index) => {
-    const team = index === 0 ? leftTeam : rightTeam;
-    b.dataset.team = team;
-    b.disabled = game.finished;
-    b.textContent = `${teamName(team)}に得点`;
+  const pointControls = document.querySelector(".point-controls");
+  const awardButtons = [...pointControls.querySelectorAll('[data-action="award"]')];
+  const awardButtonByTeam = new Map(awardButtons.map((button) => [button.dataset.team, button]));
+  awardButtons.forEach((button) => {
+    button.disabled = game.finished;
+    button.textContent = `${teamName(button.dataset.team)}に得点`;
   });
+  pointControls.append(awardButtonByTeam.get(leftTeam), awardButtonByTeam.get(rightTeam));
   document.querySelectorAll('[data-action="timeout"]').forEach((b) => { b.disabled = game.finished; b.textContent = `⏱ ${teamName(b.dataset.team)} タイムアウト`; });
   document.querySelectorAll(".operation").forEach((b) => { if (!["new-match", "match-info", "team-names", "roster"].includes(b.dataset.action)) b.disabled = game.finished; });
   $("match-name-display").textContent = game.matchName || "試合";
