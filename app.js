@@ -170,6 +170,40 @@ function playerEntry(team, playerId) {
 }
 function spikeRecord(player, outcome) { return { team: player.team, player_id: player.player_id, position: player.position, player: player.name, play: "スパイク", outcome }; }
 function unresolved(list, play) { return [...list].reverse().find((p) => p.play === play && !p.outcome); }
+function receptionAttempts(plays) {
+  const attempts = [];
+  plays.forEach((serve, index) => {
+    if (serve.play !== "サーブ") return;
+    const receivingTeam = serve.team === "A" ? "B" : "A";
+    for (let i = index + 1; i < plays.length; i += 1) {
+      const touch = plays[i];
+      if (touch.team !== receivingTeam) continue;
+      if (touch.play === "レシーブ") {
+        const next = plays[i + 1];
+        attempts.push({ play: touch, success: next?.team === receivingTeam && next.play === "トス" && next.position === "S" });
+      }
+      break;
+    }
+  });
+  return attempts;
+}
+function updateReceptionOutcomes(plays, final = false) {
+  receptionAttempts(plays).forEach((attempt) => {
+    const { play } = attempt;
+    const playIndex = plays.indexOf(play), next = plays[playIndex + 1];
+    if (next || final) play.outcome = attempt.success ? "成功" : "ミス";
+    else delete play.outcome;
+  });
+}
+function markWinningSpike(plays, winner) {
+  let index = -1;
+  for (let i = plays.length - 1; i >= 0; i -= 1) {
+    if (plays[i].play === "スパイク" && plays[i].team === winner && plays[i].outcome === "継続") { index = i; break; }
+  }
+  if (index < 0) return;
+  const after = plays.slice(index + 1);
+  if (after.every((play) => play.team !== winner && ["ブロック", "レシーブ"].includes(play.play))) plays[index].outcome = "得点";
+}
 function resolveRally(winner) {
   if (game.spikePending) {
     const hitter = game.spikePending;
@@ -177,7 +211,6 @@ function resolveRally(winner) {
     game.spikePending = null;
   }
   game.pending.forEach((play, index) => {
-    if (play.play === "レシーブ" && !play.outcome) play.outcome = play.team === winner ? "成功" : "失敗";
     if (play.play === "サーブ" && !play.outcome) {
       const later = game.pending.slice(index + 1);
       const direct = later.every((p) => ["レシーブ", "ミス"].includes(p.play));
@@ -186,8 +219,10 @@ function resolveRally(winner) {
       else play.outcome = "効果";
     }
   });
+  updateReceptionOutcomes(game.pending, true);
   const last = game.pending.at(-1);
   if (last?.play === "ブロック") last.outcome = last.team === winner ? "得点" : "継続";
+  markWinningSpike(game.pending, winner);
   game.rallies.push({ number: game.rallyNo, set: game.setNo, winner, plays: clone(game.pending) });
   game.scores[winner] += 1; game.pending = []; game.rallyNo += 1; game.selected = null;
 }
@@ -209,18 +244,17 @@ function recordPlay(play) {
     const target = game.pending.at(-1);
     const samePlayer = player && (target?.player_id && player.player_id ? target.player_id === player.player_id : target?.team === player.team && target?.position === player.position && target?.player === player.name);
     if (target && target.play !== "ミス" && !target.outcome && (!player || samePlayer)) {
-      target.outcome = target.play === "レシーブ" ? "失敗" : "ミス";
+      target.outcome = "ミス";
       const loser = target.team; game.selected = null; resolveRally(loser === "A" ? "B" : "A"); persist(`${target.player}の${target.play}ミス。相手チームに得点`); return;
     }
   }
   if (!player) { showToast("先に選手を選んでください"); return; }
   if (game.spikePending) { game.pending.push(spikeRecord(game.spikePending, "継続")); game.spikePending = null; }
-  const reception = unresolved(game.pending, "レシーブ");
-  if (reception) reception.outcome = play === "ミス" || player.team !== reception.team ? "失敗" : "成功";
   const serve = unresolved(game.pending, "サーブ");
   if (serve && !["レシーブ", "ミス"].includes(play)) serve.outcome = "効果";
   if (play === "スパイク") { game.spikePending = { ...player }; game.selected = null; persist(); return; }
   game.pending.push({ team: player.team, player_id: player.player_id, position: player.position, player: player.name, play }); game.selected = null;
+  updateReceptionOutcomes(game.pending);
   if (play === "ミス") {
     const unresolvedServe = unresolved(game.pending, "サーブ");
     if (unresolvedServe && unresolvedServe.team === player.team && !unresolvedServe.outcome) unresolvedServe.outcome = "ミス";
@@ -535,10 +569,13 @@ function renderStats(target = "stats-body", g = game) {
     const kills = attacks.filter((p) => p.outcome === "得点").length, errors = attacks.filter((p) => p.outcome === "ミス").length;
     const serves = mine.filter((p) => p.play === "サーブ" && ["エース", "効果", "ミス"].includes(p.outcome));
     const serveRate = serves.length ? serves.reduce((n, p) => n + ({ エース: 100, 効果: 25, ミス: -25 }[p.outcome] || 0), 0) / serves.length : null;
-    const rec = mine.filter((p) => p.play === "レシーブ" && ["成功", "失敗"].includes(p.outcome));
+    const receptions = receptionAttempts(plays).filter((attempt) => {
+      const p = attempt.play;
+      return p.player_id ? p.player_id === a.id : p.team === a.team && p.position === a.position && p.player === a.name;
+    });
     const blocks = mine.filter((p) => p.play === "ブロック" && p.outcome === "得点").length;
     const pct = (n, d) => d ? `${(100 * n / d).toFixed(1)}%` : "—";
-    return `<tr><td>${esc(names[a.team] || `${a.team}チーム`)}</td><td>${esc(a.position)} ${esc(a.name)}</td><td>${attacks.length}</td><td>${kills}</td><td>${errors}</td><td>${pct(kills, attacks.length)}</td><td>${pct(kills - errors, attacks.length)}</td><td>${serveRate == null ? "—" : `${serveRate.toFixed(1)}%`}</td><td>${blocks}</td><td>${pct(rec.filter((p) => p.outcome === "成功").length, rec.length)}</td></tr>`;
+    return `<tr><td>${esc(names[a.team] || `${a.team}チーム`)}</td><td>${esc(a.position)} ${esc(a.name)}</td><td>${attacks.length}</td><td>${kills}</td><td>${errors}</td><td>${pct(kills, attacks.length)}</td><td>${pct(kills - errors, attacks.length)}</td><td>${serveRate == null ? "—" : `${serveRate.toFixed(1)}%`}</td><td>${blocks}</td><td>${pct(receptions.filter((attempt) => attempt.success).length, receptions.length)}</td></tr>`;
   }).join("");
 }
 function renderHistory() {
@@ -572,7 +609,7 @@ function renderArchive() {
     const m = item.game, score = `${m.teamNames?.A || "Aチーム"} ${m.scores?.A || 0} - ${m.scores?.B || 0} ${m.teamNames?.B || "Bチーム"}`;
     const date = item.savedAt ? new Date(item.savedAt).toLocaleString("ja-JP") : "";
     const sets = (m.setScores || m.sets || []).map((s) => `第${s.set || s["セット"]}セット ${s.A}-${s.B}`).join(" · ");
-    return `<article class="saved-match"><div><strong>${esc(item.title)}</strong><small>${esc(date)} · ${esc(score)}${sets ? ` · ${esc(sets)}` : ""}${m.finished ? " · 試合終了" : ""}</small></div><div class="saved-actions"><button class="button button-quiet" data-action="open-match" data-id="${esc(item.id)}">開く</button><button class="button button-error" data-action="delete-match" data-id="${esc(item.id)}">削除</button></div><details><summary>成績・メモ</summary>${m.matchNote ? `<p>${esc(m.matchNote)}</p>` : ""}<div class="table-scroll"><table><thead><tr><th>チーム</th><th>選手</th><th>試行</th><th>得点</th><th>ミス</th><th>決定率</th><th>攻撃効率</th><th>サーブ効果率</th><th>ブロック</th><th>返球率</th></tr></thead><tbody id="stats-${esc(item.id)}"></tbody></table></div></details></article>`;
+    return `<article class="saved-match"><div><strong>${esc(item.title)}</strong><small>${esc(date)} · ${esc(score)}${sets ? ` · ${esc(sets)}` : ""}${m.finished ? " · 試合終了" : ""}</small></div><div class="saved-actions"><button class="button button-quiet" data-action="open-match" data-id="${esc(item.id)}">開く</button><button class="button button-error" data-action="delete-match" data-id="${esc(item.id)}">削除</button></div><details><summary>成績・メモ</summary>${m.matchNote ? `<p>${esc(m.matchNote)}</p>` : ""}<div class="table-scroll"><table><thead><tr><th>チーム</th><th>選手</th><th>試行</th><th>得点</th><th>ミス</th><th>決定率</th><th>攻撃効率</th><th>サーブ効果率</th><th>ブロック</th><th>レセプション成功率</th></tr></thead><tbody id="stats-${esc(item.id)}"></tbody></table></div></details></article>`;
   }).join("") : '<p class="empty-feed">保存した試合はありません。</p>';
   matches.forEach((item) => { const id = `stats-${item.id}`; if ($(id)) renderStats(id, item.game); });
 }
@@ -624,13 +661,13 @@ function renderSavedView() {
     const m = item.game || {}, names = m.teamNames || {}, scores = m.scores || {};
     const sets = (m.setScores || []).map((s) => "第" + s.set + "セット " + s.A + "-" + s.B).join(" · ");
     const options = folderOptions.replace('value="' + esc(item.folderId || "") + '"', 'value="' + esc(item.folderId || "") + '" selected');
-    return '<details class="saved-match"><summary><strong>' + esc(item.title || "試合") + '</strong><small>' + esc(names.A || "Aチーム") + ' ' + esc(scores.A || 0) + ' - ' + esc(scores.B || 0) + ' ' + esc(names.B || "Bチーム") + (sets ? ' · ' + sets : "") + '</small><small>開いて選手成績を確認</small></summary><label class="folder-move-label">保存先<select data-folder-match="' + esc(item.id) + '">' + options + '</select></label><div class="saved-actions"><button class="button button-primary" data-action="open-match" data-id="' + esc(item.id) + '">試合を開く</button><button class="button button-error" data-action="delete-match" data-id="' + esc(item.id) + '">削除</button></div><div class="table-scroll"><table><thead><tr><th>チーム</th><th>選手</th><th>試行</th><th>得点</th><th>ミス</th><th>決定率</th><th>攻撃効率</th><th>サーブ効果率</th><th>ブロック</th><th>返球率</th></tr></thead><tbody id="folder-match-stats-' + esc(item.id) + '"></tbody></table></div></details>';
+    return '<details class="saved-match"><summary><strong>' + esc(item.title || "試合") + '</strong><small>' + esc(names.A || "Aチーム") + ' ' + esc(scores.A || 0) + ' - ' + esc(scores.B || 0) + ' ' + esc(names.B || "Bチーム") + (sets ? ' · ' + sets : "") + '</small><small>開いて選手成績を確認</small></summary><label class="folder-move-label">保存先<select data-folder-match="' + esc(item.id) + '">' + options + '</select></label><div class="saved-actions"><button class="button button-primary" data-action="open-match" data-id="' + esc(item.id) + '">試合を開く</button><button class="button button-error" data-action="delete-match" data-id="' + esc(item.id) + '">削除</button></div><div class="table-scroll"><table><thead><tr><th>チーム</th><th>選手</th><th>試行</th><th>得点</th><th>ミス</th><th>決定率</th><th>攻撃効率</th><th>サーブ効果率</th><th>ブロック</th><th>レセプション成功率</th></tr></thead><tbody id="folder-match-stats-' + esc(item.id) + '"></tbody></table></div></details>';
   };
   $("home-archive-list").innerHTML = ordered.length || matchFolders.length ? groups.map((group) => {
     const groupMatches = ordered.filter((item) => (item.folderId || "") === group.id);
     if (!groupMatches.length && !group.id) return "";
     const statsId = group.id ? 'folder-stats-' + esc(group.id) : "";
-    const statsBlock = group.id ? '<div class="folder-stats"><strong>📊 フォルダー内の選手成績</strong><div class="table-scroll"><table><thead><tr><th>チーム</th><th>選手</th><th>試行</th><th>得点</th><th>ミス</th><th>決定率</th><th>攻撃効率</th><th>サーブ効果率</th><th>ブロック</th><th>返球率</th></tr></thead><tbody id="' + statsId + '"></tbody></table></div></div>' : "";
+    const statsBlock = group.id ? '<div class="folder-stats"><strong>📊 フォルダー内の選手成績</strong><div class="table-scroll"><table><thead><tr><th>チーム</th><th>選手</th><th>試行</th><th>得点</th><th>ミス</th><th>決定率</th><th>攻撃効率</th><th>サーブ効果率</th><th>ブロック</th><th>レセプション成功率</th></tr></thead><tbody id="' + statsId + '"></tbody></table></div></div>' : "";
     const folderTools = group.id ? '<div class="folder-tools"><button class="button button-quiet" data-action="rename-folder" data-id="' + esc(group.id) + '">名前を変更</button><button class="button button-error" data-action="delete-folder" data-id="' + esc(group.id) + '">フォルダーを削除</button></div>' : "";
     return '<details class="match-folder"><summary>📁 ' + esc(group.name) + ' · ' + groupMatches.length + '試合 <small>開いて成績を見る</small></summary>' + folderTools + statsBlock + (groupMatches.length ? groupMatches.map(matchCard).join("") : '<p class="empty-feed">このフォルダーは空です。</p>') + '</details>';
   }).join("") : '<p class="empty-feed">保存した試合はありません。</p>';
@@ -806,7 +843,7 @@ function rallyEditFields(index, selectedPlayIndex = 0) {
     const playOptions = rally.plays.map((p, i) => `<option value="${i}" ${i === selectedPlayIndex ? "selected" : ""}>${i + 1}. ${esc(teamName(p.team))} · ${esc(p.position)} ${esc(p.player || p.name)} · ${esc(p.play)}</option>`).join("");
     const positionOptions = [...new Set([...POSITIONS, first.position])].map((p) => `<option ${p === first.position ? "selected" : ""}>${esc(p)}</option>`).join("");
     const actionOptions = [...new Set([...PLAYS, first.play])].map((p) => `<option ${p === first.play ? "selected" : ""}>${esc(p)}</option>`).join("");
-    const outcomes = ["なし", "得点", "ミス", "継続", "成功", "失敗", "エース", "効果", "未確定"];
+    const outcomes = ["なし", "得点", "ミス", "継続", "成功", "ミス", "エース", "効果", "未確定"];
     const outcomeOptions = outcomes.map((o) => `<option value="${o}" ${(first.outcome || "なし") === o ? "selected" : ""}>${o}</option>`).join("");
     playFields = `<label>修正するプレー</label><select name="playIndex">${playOptions}</select><div class="edit-fields"><label>プレーしたチーム<select name="playTeam">${["A", "B"].map((t) => `<option value="${t}" ${first.team === t ? "selected" : ""}>${esc(teamName(t))}</option>`).join("")}</select></label><label>ポジション<select name="position">${positionOptions}</select></label></div><label>選手名</label><input name="player" maxlength="24" value="${esc(first.player || first.name)}"><label>プレー</label><select name="play">${actionOptions}</select><label>結果</label><select name="outcome">${outcomeOptions}</select><label class="check-label"><input type="checkbox" name="removePlay">このプレーを削除</label>`;
   }
@@ -845,11 +882,14 @@ function recalculateRally(rally) {
       const later = plays.slice(i + 1), direct = later.every((x) => ["レシーブ", "ミス"].includes(x.play));
       p.outcome = p.team === rally.winner && direct ? "エース" : p.team !== rally.winner && !later.length ? "ミス" : "効果";
     }
-    if (p.play === "レシーブ" && !p.error) p.outcome = p.team === rally.winner ? "成功" : "失敗";
+    if (p.play === "スパイク") p.outcome = "継続";
+    if (p.play === "ブロック") p.outcome = "継続";
   });
+  updateReceptionOutcomes(plays, true);
   const last = plays.at(-1);
   if (last?.play === "スパイク") last.outcome = last.team === rally.winner ? "得点" : "ミス";
   if (last?.play === "ブロック") last.outcome = last.team === rally.winner ? "得点" : "継続";
+  markWinningSpike(plays, rally.winner);
 }
 function openRallyEditor() {
   if (!game.rallies.length) { showToast("修正できるラリーがありません"); return; }
@@ -861,7 +901,7 @@ function openRallyEditor() {
       const oldPlay = p.play; p.team = data.get("playTeam"); p.position = data.get("position"); p.player = String(data.get("player")).trim() || p.player || p.name; p.play = data.get("play");
       const outcome = data.get("outcome"); if (outcome === "なし") delete p.outcome; else p.outcome = outcome;
       if (p.play === "ミス") { p.outcome = "ミス"; if (rally.winner === p.team) rally.winner = p.team === "A" ? "B" : "A"; }
-      if (p.play === "レシーブ" && outcome === "失敗") p.error = "ミス"; else if (oldPlay === "レシーブ" || p.play !== "レシーブ") delete p.error;
+      if (p.play === "レシーブ" && outcome === "ミス") p.error = "ミス"; else if (oldPlay === "レシーブ" || p.play !== "レシーブ") delete p.error;
     } else if (rally.plays?.length && data.has("removePlay")) rally.plays.splice(playIndex, 1);
     if (oldWinner !== rally.winner) recalculateRally(rally);
     for (const set of game.setScores) {
