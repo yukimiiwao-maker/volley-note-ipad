@@ -502,7 +502,14 @@ function renderRally() {
   $("rally-feed").innerHTML = game.pending.length ? game.pending.map((play, i) => `<div class="play-event"><span class="event-number">${String(i + 1).padStart(2, "0")}</span><span class="event-team">${esc(teamName(play.team))} · ${esc(play.position)} ${esc(play.player)}</span><span>${esc(play.play)}${play.outcome ? `（${esc(play.outcome)}）` : ""}</span></div>`).join("") : '<div class="empty-feed">このラリーのプレーはまだ記録されていません。</div>';
   const undoableRally = game.rallies.some((rally) => rally.set === game.setNo);
   document.querySelector('[data-action="undo-play"]').disabled = game.finished || (!game.pending.length && !game.spikePending && !undoableRally);
-  document.querySelectorAll('[data-action="award"]').forEach((b) => { b.disabled = game.finished; b.textContent = `${teamName(b.dataset.team)}に得点`; });
+  const leftTeam = game.courtSides?.A === "left" ? "A" : "B";
+  const rightTeam = leftTeam === "A" ? "B" : "A";
+  document.querySelectorAll('[data-action="award"]').forEach((b, index) => {
+    const team = index === 0 ? leftTeam : rightTeam;
+    b.dataset.team = team;
+    b.disabled = game.finished;
+    b.textContent = `${teamName(team)}に得点`;
+  });
   document.querySelectorAll('[data-action="timeout"]').forEach((b) => { b.disabled = game.finished; b.textContent = `⏱ ${teamName(b.dataset.team)} タイムアウト`; });
   document.querySelectorAll(".operation").forEach((b) => { if (!["new-match", "match-info", "team-names", "roster"].includes(b.dataset.action)) b.disabled = game.finished; });
   $("match-name-display").textContent = game.matchName || "試合";
