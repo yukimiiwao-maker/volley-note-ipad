@@ -170,7 +170,7 @@ function playerEntry(team, playerId) {
 }
 function spikeRecord(player, outcome) { return { team: player.team, player_id: player.player_id, position: player.position, player: player.name, play: "スパイク", outcome }; }
 function unresolved(list, play) { return [...list].reverse().find((p) => p.play === play && !p.outcome); }
-function receptionAttempts(plays) {
+function receptionAttempts(plays, final = true) {
   const attempts = [];
   plays.forEach((serve, index) => {
     if (serve.play !== "サーブ") return;
@@ -180,7 +180,7 @@ function receptionAttempts(plays) {
       if (touch.team !== receivingTeam) continue;
       if (touch.play === "レシーブ") {
         const next = plays[i + 1];
-        attempts.push({ play: touch, success: next?.team === receivingTeam && next.play === "トス" && next.position === "S" });
+        attempts.push({ play: touch, success: next?.team === receivingTeam && next.play === "トス" && next.position === "S", complete: Boolean(next) || final });
       }
       break;
     }
@@ -188,21 +188,20 @@ function receptionAttempts(plays) {
   return attempts;
 }
 function updateReceptionOutcomes(plays, final = false) {
-  receptionAttempts(plays).forEach((attempt) => {
+  receptionAttempts(plays, final).forEach((attempt) => {
     const { play } = attempt;
-    const playIndex = plays.indexOf(play), next = plays[playIndex + 1];
-    if (next || final) play.outcome = attempt.success ? "成功" : "ミス";
+    if (attempt.complete) play.outcome = attempt.success ? "成功" : "ミス";
     else delete play.outcome;
   });
 }
 function markWinningSpike(plays, winner) {
   let index = -1;
   for (let i = plays.length - 1; i >= 0; i -= 1) {
-    if (plays[i].play === "スパイク" && plays[i].team === winner && plays[i].outcome === "継続") { index = i; break; }
+    if (plays[i].play === "スパイク" && plays[i].team === winner) { index = i; break; }
   }
   if (index < 0) return;
   const after = plays.slice(index + 1);
-  if (after.every((play) => play.team !== winner && ["ブロック", "レシーブ"].includes(play.play))) plays[index].outcome = "得点";
+  if (after.every((play) => play.team !== winner && ["ブロック", "レシーブ", "ミス"].includes(play.play))) plays[index].outcome = "得点";
 }
 function resolveRally(winner) {
   if (game.spikePending) {
@@ -552,7 +551,14 @@ function renderRally() {
   $("match-note-display").textContent = game.matchNote || "試合メモはまだありません。";
   $("finished-state").textContent = game.finished ? "試合終了" : "試合中";
 }
-function allPlays(g = game) { return [...(g.rallies || []).flatMap((r) => r.plays || []), ...(g.pending || [])]; }
+function allPlays(g = game) {
+  const completed = (g.rallies || []).flatMap((rally) => {
+    const rallyPlays = clone(rally.plays || []);
+    markWinningSpike(rallyPlays, rally.winner);
+    return rallyPlays;
+  });
+  return [...completed, ...(g.pending || [])];
+}
 function renderStats(target = "stats-body", g = game) {
   const plays = allPlays(g), names = g.teamNames || { A: "Aチーム", B: "Bチーム" }, athletes = new Map();
   Object.entries(g.teams || {}).forEach(([team, roster]) => roster.forEach((player) => athletes.set(player.id, { id: player.id, team, position: player.position, name: player.name })));
@@ -569,15 +575,22 @@ function renderStats(target = "stats-body", g = game) {
     const mine = plays.filter((p) => p.player_id ? p.player_id === a.id : p.team === a.team && p.position === a.position && p.player === a.name);
     const attacks = mine.filter((p) => p.play === "スパイク" && ["得点", "継続", "ミス"].includes(p.outcome));
     const kills = attacks.filter((p) => p.outcome === "得点").length, errors = attacks.filter((p) => p.outcome === "ミス").length;
-    const serves = mine.filter((p) => p.play === "サーブ" && ["エース", "効果", "ミス"].includes(p.outcome));
+    const allServes = mine.filter((p) => p.play === "サーブ");
+    const serves = allServes.filter((p) => ["エース", "効果", "ミス"].includes(p.outcome));
+    const aces = serves.filter((p) => p.outcome === "エース").length;
+    const serveEffects = serves.filter((p) => p.outcome === "効果").length;
+    const serveErrors = serves.filter((p) => p.outcome === "ミス").length;
     const serveRate = serves.length ? serves.reduce((n, p) => n + ({ エース: 100, 効果: 25, ミス: -25 }[p.outcome] || 0), 0) / serves.length : null;
-    const receptions = receptionAttempts(plays).filter((attempt) => {
+    const receptions = [...(g.rallies || []).flatMap((rally) => receptionAttempts(rally.plays || [], true)), ...receptionAttempts(g.pending || [], false)].filter((attempt) => {
       const p = attempt.play;
       return p.player_id ? p.player_id === a.id : p.team === a.team && p.position === a.position && p.player === a.name;
     });
+    const completedReceptions = receptions.filter((attempt) => attempt.complete);
+    const receptionSuccesses = completedReceptions.filter((attempt) => attempt.success).length;
+    const receptionErrors = completedReceptions.length - receptionSuccesses;
     const blocks = mine.filter((p) => p.play === "ブロック" && p.outcome === "得点").length;
     const pct = (n, d) => d ? `${(100 * n / d).toFixed(1)}%` : "—";
-    return `<tr><td>${esc(names[a.team] || `${a.team}チーム`)}</td><td>${esc(a.position)} ${esc(a.name)}</td><td>${attacks.length}</td><td>${kills}</td><td>${errors}</td><td>${pct(kills, attacks.length)}</td><td>${pct(kills - errors, attacks.length)}</td><td>${serveRate == null ? "—" : `${serveRate.toFixed(1)}%`}</td><td>${blocks}</td><td>${pct(receptions.filter((attempt) => attempt.success).length, receptions.length)}</td></tr>`;
+    return `<tr><td>${esc(names[a.team] || `${a.team}チーム`)}</td><td>${esc(a.position)} ${esc(a.name)}</td><td>${attacks.length}</td><td>${kills}</td><td>${errors}</td><td>${pct(kills, attacks.length)}</td><td>${pct(kills - errors, attacks.length)}</td><td>${allServes.length}</td><td>${aces}</td><td>${serveEffects}</td><td>${serveErrors}</td><td>${serveRate == null ? "—" : `${serveRate.toFixed(1)}%`}</td><td>${blocks}</td><td>${receptions.length}</td><td>${receptionSuccesses}</td><td>${receptionErrors}</td><td>${pct(receptionSuccesses, completedReceptions.length)}</td></tr>`;
   }).join("");
 }
 function renderHistory() {
@@ -611,7 +624,7 @@ function renderArchive() {
     const m = item.game, score = `${m.teamNames?.A || "Aチーム"} ${m.scores?.A || 0} - ${m.scores?.B || 0} ${m.teamNames?.B || "Bチーム"}`;
     const date = item.savedAt ? new Date(item.savedAt).toLocaleString("ja-JP") : "";
     const sets = (m.setScores || m.sets || []).map((s) => `第${s.set || s["セット"]}セット ${s.A}-${s.B}`).join(" · ");
-    return `<article class="saved-match"><div><strong>${esc(item.title)}</strong><small>${esc(date)} · ${esc(score)}${sets ? ` · ${esc(sets)}` : ""}${m.finished ? " · 試合終了" : ""}</small></div><div class="saved-actions"><button class="button button-quiet" data-action="open-match" data-id="${esc(item.id)}">開く</button><button class="button button-error" data-action="delete-match" data-id="${esc(item.id)}">削除</button></div><details><summary>成績・メモ</summary>${m.matchNote ? `<p>${esc(m.matchNote)}</p>` : ""}<div class="table-scroll"><table><thead><tr><th>チーム</th><th>選手</th><th>試行</th><th>得点</th><th>ミス</th><th>決定率</th><th>攻撃効率</th><th>サーブ効果率</th><th>ブロック</th><th>レセプション成功率</th></tr></thead><tbody id="stats-${esc(item.id)}"></tbody></table></div></details></article>`;
+    return `<article class="saved-match"><div><strong>${esc(item.title)}</strong><small>${esc(date)} · ${esc(score)}${sets ? ` · ${esc(sets)}` : ""}${m.finished ? " · 試合終了" : ""}</small></div><div class="saved-actions"><button class="button button-quiet" data-action="open-match" data-id="${esc(item.id)}">開く</button><button class="button button-error" data-action="delete-match" data-id="${esc(item.id)}">削除</button></div><details><summary>成績・メモ</summary>${m.matchNote ? `<p>${esc(m.matchNote)}</p>` : ""}<div class="table-scroll"><table><thead><tr><th>チーム</th><th>選手</th><th>スパイク試行</th><th>スパイク得点</th><th>スパイクミス</th><th>決定率</th><th>攻撃効率</th><th>サーブ数</th><th>エース</th><th>効果</th><th>サーブミス</th><th>サーブ効果率</th><th>ブロック得点</th><th>レセプション数</th><th>成功</th><th>ミス</th><th>レセプション成功率</th></tr></thead><tbody id="stats-${esc(item.id)}"></tbody></table></div></details></article>`;
   }).join("") : '<p class="empty-feed">保存した試合はありません。</p>';
   matches.forEach((item) => { const id = `stats-${item.id}`; if ($(id)) renderStats(id, item.game); });
 }
@@ -663,13 +676,13 @@ function renderSavedView() {
     const m = item.game || {}, names = m.teamNames || {}, scores = m.scores || {};
     const sets = (m.setScores || []).map((s) => "第" + s.set + "セット " + s.A + "-" + s.B).join(" · ");
     const options = folderOptions.replace('value="' + esc(item.folderId || "") + '"', 'value="' + esc(item.folderId || "") + '" selected');
-    return '<details class="saved-match"><summary><strong>' + esc(item.title || "試合") + '</strong><small>' + esc(names.A || "Aチーム") + ' ' + esc(scores.A || 0) + ' - ' + esc(scores.B || 0) + ' ' + esc(names.B || "Bチーム") + (sets ? ' · ' + sets : "") + '</small><small>開いて選手成績を確認</small></summary><label class="folder-move-label">保存先<select data-folder-match="' + esc(item.id) + '">' + options + '</select></label><div class="saved-actions"><button class="button button-primary" data-action="open-match" data-id="' + esc(item.id) + '">試合を開く</button><button class="button button-error" data-action="delete-match" data-id="' + esc(item.id) + '">削除</button></div><div class="table-scroll"><table><thead><tr><th>チーム</th><th>選手</th><th>試行</th><th>得点</th><th>ミス</th><th>決定率</th><th>攻撃効率</th><th>サーブ効果率</th><th>ブロック</th><th>レセプション成功率</th></tr></thead><tbody id="folder-match-stats-' + esc(item.id) + '"></tbody></table></div></details>';
+    return '<details class="saved-match"><summary><strong>' + esc(item.title || "試合") + '</strong><small>' + esc(names.A || "Aチーム") + ' ' + esc(scores.A || 0) + ' - ' + esc(scores.B || 0) + ' ' + esc(names.B || "Bチーム") + (sets ? ' · ' + sets : "") + '</small><small>開いて選手成績を確認</small></summary><label class="folder-move-label">保存先<select data-folder-match="' + esc(item.id) + '">' + options + '</select></label><div class="saved-actions"><button class="button button-primary" data-action="open-match" data-id="' + esc(item.id) + '">試合を開く</button><button class="button button-error" data-action="delete-match" data-id="' + esc(item.id) + '">削除</button></div><div class="table-scroll"><table><thead><tr><th>チーム</th><th>選手</th><th>スパイク試行</th><th>スパイク得点</th><th>スパイクミス</th><th>決定率</th><th>攻撃効率</th><th>サーブ数</th><th>エース</th><th>効果</th><th>サーブミス</th><th>サーブ効果率</th><th>ブロック得点</th><th>レセプション数</th><th>成功</th><th>ミス</th><th>レセプション成功率</th></tr></thead><tbody id="folder-match-stats-' + esc(item.id) + '"></tbody></table></div></details>';
   };
   $("home-archive-list").innerHTML = ordered.length || matchFolders.length ? groups.map((group) => {
     const groupMatches = ordered.filter((item) => (item.folderId || "") === group.id);
     if (!groupMatches.length && !group.id) return "";
     const statsId = group.id ? 'folder-stats-' + esc(group.id) : "";
-    const statsBlock = group.id ? '<div class="folder-stats"><strong>📊 フォルダー内の選手成績</strong><div class="table-scroll"><table><thead><tr><th>チーム</th><th>選手</th><th>試行</th><th>得点</th><th>ミス</th><th>決定率</th><th>攻撃効率</th><th>サーブ効果率</th><th>ブロック</th><th>レセプション成功率</th></tr></thead><tbody id="' + statsId + '"></tbody></table></div></div>' : "";
+    const statsBlock = group.id ? '<div class="folder-stats"><strong>📊 フォルダー内の選手成績</strong><div class="table-scroll"><table><thead><tr><th>チーム</th><th>選手</th><th>スパイク試行</th><th>スパイク得点</th><th>スパイクミス</th><th>決定率</th><th>攻撃効率</th><th>サーブ数</th><th>エース</th><th>効果</th><th>サーブミス</th><th>サーブ効果率</th><th>ブロック得点</th><th>レセプション数</th><th>成功</th><th>ミス</th><th>レセプション成功率</th></tr></thead><tbody id="' + statsId + '"></tbody></table></div></div>' : "";
     const folderTools = group.id ? '<div class="folder-tools"><button class="button button-quiet" data-action="rename-folder" data-id="' + esc(group.id) + '">名前を変更</button><button class="button button-error" data-action="delete-folder" data-id="' + esc(group.id) + '">フォルダーを削除</button></div>' : "";
     return '<details class="match-folder"><summary>📁 ' + esc(group.name) + ' · ' + groupMatches.length + '試合 <small>開いて成績を見る</small></summary>' + folderTools + statsBlock + (groupMatches.length ? groupMatches.map(matchCard).join("") : '<p class="empty-feed">このフォルダーは空です。</p>') + '</details>';
   }).join("") : '<p class="empty-feed">保存した試合はありません。</p>';
