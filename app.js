@@ -170,6 +170,20 @@ function playerEntry(team, playerId) {
 }
 function spikeRecord(player, outcome) { return { team: player.team, player_id: player.player_id, position: player.position, player: player.name, play: "スパイク", outcome }; }
 function unresolved(list, play) { return [...list].reverse().find((p) => p.play === play && !p.outcome); }
+function updateServeOutcomes(plays, winner, final = true) {
+  const touchActions = ["レシーブ", "トス", "スパイク", "ブロック", "ミス"];
+  plays.forEach((serve, index) => {
+    if (serve.play !== "サーブ") return;
+    const firstTouch = plays.slice(index + 1).find((play) => play.team !== serve.team && touchActions.includes(play.play));
+    if (firstTouch?.position === "S") { delete serve.outcome; return; }
+    if (firstTouch) { serve.outcome = "効果"; return; }
+    if (!final) { delete serve.outcome; return; }
+    const later = plays.slice(index + 1);
+    if (later.some((play) => play.team === serve.team && play.play === "ミス")) { serve.outcome = "ミス"; return; }
+    if (winner === serve.team) serve.outcome = "エース";
+    else serve.outcome = later.length ? "効果" : "ミス";
+  });
+}
 function receptionAttempts(plays, final = true) {
   const attempts = [];
   plays.forEach((serve, index) => {
@@ -203,25 +217,27 @@ function markWinningSpike(plays, winner) {
   const after = plays.slice(index + 1);
   if (after.every((play) => play.team !== winner && ["ブロック", "レシーブ", "ミス"].includes(play.play))) plays[index].outcome = "得点";
 }
+function markBlockedSpike(plays, winner) {
+  for (let i = plays.length - 1; i >= 0; i -= 1) {
+    const spike = plays[i];
+    if (spike.play !== "スパイク" || spike.team === winner) continue;
+    const firstOpponentTouch = plays.slice(i + 1).find((play) => play.team !== spike.team && ["レシーブ", "トス", "スパイク", "ブロック", "ミス"].includes(play.play));
+    if (firstOpponentTouch?.play === "ブロック" && firstOpponentTouch.team === winner) spike.outcome = "ミス";
+    return;
+  }
+}
 function resolveRally(winner) {
   if (game.spikePending) {
     const hitter = game.spikePending;
     game.pending.push(spikeRecord(hitter, hitter.team === winner ? "得点" : "ミス"));
     game.spikePending = null;
   }
-  game.pending.forEach((play, index) => {
-    if (play.play === "サーブ" && !play.outcome) {
-      const later = game.pending.slice(index + 1);
-      const direct = later.every((p) => ["レシーブ", "ミス"].includes(p.play));
-      if (play.team === winner && direct) play.outcome = "エース";
-      else if (play.team !== winner && later.length === 0) play.outcome = "ミス";
-      else play.outcome = "効果";
-    }
-  });
+  updateServeOutcomes(game.pending, winner, true);
   updateReceptionOutcomes(game.pending, true);
   const last = game.pending.at(-1);
   if (last?.play === "ブロック") last.outcome = last.team === winner ? "得点" : "継続";
   markWinningSpike(game.pending, winner);
+  markBlockedSpike(game.pending, winner);
   game.rallies.push({ number: game.rallyNo, set: game.setNo, winner, plays: clone(game.pending) });
   game.scores[winner] += 1; game.pending = []; game.rallyNo += 1; game.selected = null;
 }
@@ -249,10 +265,9 @@ function recordPlay(play) {
   }
   if (!player) { showToast("先に選手を選んでください"); return; }
   if (game.spikePending) { game.pending.push(spikeRecord(game.spikePending, "継続")); game.spikePending = null; }
-  const serve = unresolved(game.pending, "サーブ");
-  if (serve && !["レシーブ", "ミス"].includes(play)) serve.outcome = "効果";
   if (play === "スパイク") { game.spikePending = { ...player }; game.selected = null; persist(); return; }
   game.pending.push({ team: player.team, player_id: player.player_id, position: player.position, player: player.name, play }); game.selected = null;
+  updateServeOutcomes(game.pending, null, false);
   updateReceptionOutcomes(game.pending);
   if (play === "ミス") {
     const unresolvedServe = unresolved(game.pending, "サーブ");
@@ -554,10 +569,14 @@ function renderRally() {
 function allPlays(g = game) {
   const completed = (g.rallies || []).flatMap((rally) => {
     const rallyPlays = clone(rally.plays || []);
+    updateServeOutcomes(rallyPlays, rally.winner, true);
     markWinningSpike(rallyPlays, rally.winner);
+    markBlockedSpike(rallyPlays, rally.winner);
     return rallyPlays;
   });
-  return [...completed, ...(g.pending || [])];
+  const pending = clone(g.pending || []);
+  updateServeOutcomes(pending, null, false);
+  return [...completed, ...pending];
 }
 function renderStats(target = "stats-body", g = game) {
   const plays = allPlays(g), names = g.teamNames || { A: "Aチーム", B: "Bチーム" }, athletes = new Map();
@@ -892,19 +911,17 @@ formContent.addEventListener("change", (event) => {
 });
 function recalculateRally(rally) {
   const plays = rally.plays || [];
-  plays.forEach((p, i) => {
-    if (p.play === "サーブ" && p.outcome !== "ミス") {
-      const later = plays.slice(i + 1), direct = later.every((x) => ["レシーブ", "ミス"].includes(x.play));
-      p.outcome = p.team === rally.winner && direct ? "エース" : p.team !== rally.winner && !later.length ? "ミス" : "効果";
-    }
+  plays.forEach((p) => {
     if (p.play === "スパイク") p.outcome = "継続";
     if (p.play === "ブロック") p.outcome = "継続";
   });
+  updateServeOutcomes(plays, rally.winner, true);
   updateReceptionOutcomes(plays, true);
   const last = plays.at(-1);
   if (last?.play === "スパイク") last.outcome = last.team === rally.winner ? "得点" : "ミス";
   if (last?.play === "ブロック") last.outcome = last.team === rally.winner ? "得点" : "継続";
   markWinningSpike(plays, rally.winner);
+  markBlockedSpike(plays, rally.winner);
 }
 function openRallyEditor() {
   if (!game.rallies.length) { showToast("修正できるラリーがありません"); return; }
