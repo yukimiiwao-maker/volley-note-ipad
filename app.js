@@ -218,13 +218,20 @@ function markWinningSpike(plays, winner) {
   if (after.every((play) => play.team !== winner && ["ブロック", "レシーブ", "ミス"].includes(play.play))) plays[index].outcome = "得点";
 }
 function markBlockedSpike(plays, winner) {
-  for (let i = plays.length - 1; i >= 0; i -= 1) {
-    const spike = plays[i];
-    if (spike.play !== "スパイク" || spike.team === winner) continue;
-    const firstOpponentTouch = plays.slice(i + 1).find((play) => play.team !== spike.team && ["レシーブ", "トス", "スパイク", "ブロック", "ミス"].includes(play.play));
-    if (firstOpponentTouch?.play === "ブロック" && firstOpponentTouch.team === winner) spike.outcome = "ミス";
-    return;
-  }
+  const touches = new Set(["レシーブ", "トス", "スパイク", "ブロック", "ミス"]);
+  // Each spike belongs to the attacker until the opponents touch the ball.
+  // When that first opponent contact is a winning block, charge the spike as
+  // an attacker error. Scanning every spike also handles rallies with multiple
+  // attacks instead of returning after an unrelated later attack.
+  plays.forEach((spike, index) => {
+    if (spike.play !== "スパイク" || spike.team === winner) return;
+    const firstOpponentTouch = plays.slice(index + 1).find(
+      (play) => play.team !== spike.team && touches.has(play.play),
+    );
+    if (firstOpponentTouch?.play === "ブロック" && firstOpponentTouch.team === winner) {
+      spike.outcome = "ミス";
+    }
+  });
 }
 function resolveRally(winner) {
   if (game.spikePending) {
