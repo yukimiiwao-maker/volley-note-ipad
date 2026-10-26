@@ -174,14 +174,25 @@ function updateServeOutcomes(plays, winner, final = true) {
   const touchActions = ["レシーブ", "トス", "スパイク", "ブロック", "ミス"];
   plays.forEach((serve, index) => {
     if (serve.play !== "サーブ") return;
-    const firstTouch = plays.slice(index + 1).find((play) => play.team !== serve.team && touchActions.includes(play.play));
-    if (firstTouch?.position === "S") { delete serve.outcome; return; }
+    const receivingTeam = serve.team === "A" ? "B" : "A";
+    const later = plays.slice(index + 1);
+    const firstTouchIndex = later.findIndex((play) => play.team === receivingTeam && touchActions.includes(play.play));
+    const firstTouch = firstTouchIndex < 0 ? null : later[firstTouchIndex];
+    // A direct setter contact, or a reception that reaches the setter, is not
+    // classified as an ace/effective serve/error. The reception is handled as
+    // its own stat, while the serve outcome reflects whether the pass troubled
+    // the receiving team.
+    const setterTakesFirst = firstTouch?.position === "S";
+    const nextTouch = firstTouchIndex < 0 ? null : later.slice(firstTouchIndex + 1).find((play) => touchActions.includes(play.play));
+    const receptionReachesSetter = firstTouch?.play === "レシーブ" && nextTouch?.team === receivingTeam && nextTouch.position === "S";
+    if (setterTakesFirst || receptionReachesSetter) { delete serve.outcome; return; }
+    // A serve that wins the rally after the receiving team touches it is still
+    // an ace (for example: serve → reception → point for the serving team).
+    if (final && winner === serve.team) { serve.outcome = "エース"; return; }
     if (firstTouch) { serve.outcome = "効果"; return; }
     if (!final) { delete serve.outcome; return; }
-    const later = plays.slice(index + 1);
     if (later.some((play) => play.team === serve.team && play.play === "ミス")) { serve.outcome = "ミス"; return; }
-    if (winner === serve.team) serve.outcome = "エース";
-    else serve.outcome = later.length ? "効果" : "ミス";
+    serve.outcome = "ミス";
   });
 }
 function receptionAttempts(plays, final = true) {
