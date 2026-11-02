@@ -600,7 +600,7 @@ function renderStatsScopeOptions() {
   select.innerHTML = '<option value="all">試合全体</option>' + Array.from({ length: lastSet }, (_, index) => `<option value="${index + 1}">第${index + 1}セット</option>`).join("");
   select.value = [...select.options].some((option) => option.value === previous) ? previous : "all";
 }
-function renderStats(target = "stats-body", g = game, scope = "all") {
+function renderStats(target = "stats-body", g = game, scope = "all", compactTeams = false) {
   const scopedGame = scope === "all" ? g : {
     ...g,
     rallies: (g.rallies || []).filter((rally) => Number(rally.set) === Number(scope)),
@@ -636,10 +636,16 @@ function renderStats(target = "stats-body", g = game, scope = "all") {
     const receptionErrors = completedReceptions.length - receptionSuccesses;
     const blocks = mine.filter((p) => p.play === "ブロック" && p.outcome === "得点").length;
     const pct = (n, d) => d ? `${(100 * n / d).toFixed(1)}%` : "—";
-    return `<tr><td>${esc(names[a.team] || `${a.team}チーム`)}</td><td>${esc(a.position)} ${esc(a.name)}</td><td>${attacks.length}</td><td>${kills}</td><td>${errors}</td><td>${pct(kills, attacks.length)}</td><td>${pct(kills - errors, attacks.length)}</td><td>${allServes.length}</td><td>${aces}</td><td>${serveEffects}</td><td>${serveErrors}</td><td>${serveRate == null ? "—" : `${serveRate.toFixed(1)}%`}</td><td>${blocks}</td><td>${receptions.length}</td><td>${receptionSuccesses}</td><td>${receptionErrors}</td><td>${pct(receptionSuccesses, completedReceptions.length)}</td></tr>`;
+    return `<tr class="stats-player-row" data-stats-team="${esc(team)}" ${compactTeams ? "hidden" : ""}><td>${esc(names[a.team] || `${a.team}チーム`)}</td><td>${esc(a.position)} ${esc(a.name)}</td><td>${attacks.length}</td><td>${kills}</td><td>${errors}</td><td>${pct(kills, attacks.length)}</td><td>${pct(kills - errors, attacks.length)}</td><td>${allServes.length}</td><td>${aces}</td><td>${serveEffects}</td><td>${serveErrors}</td><td>${serveRate == null ? "—" : `${serveRate.toFixed(1)}%`}</td><td>${blocks}</td><td>${receptions.length}</td><td>${receptionSuccesses}</td><td>${receptionErrors}</td><td>${pct(receptionSuccesses, completedReceptions.length)}</td></tr>`;
   }).join("");
   const teams = [...new Set([...Object.keys(names), ...rows.map((athlete) => athlete.team)])];
-  $(target).innerHTML = teams.map((team) => `<tr class="stats-team-heading" data-team="${esc(team)}"><th colspan="17">${esc(names[team] || `${team}チーム`)}</th></tr>${playerRows(team)}`).join("");
+  $(target).innerHTML = teams.map((team) => {
+    const label = names[team] || `${team}チーム`, count = rows.filter((athlete) => athlete.team === team).length;
+    const heading = compactTeams
+      ? `<button class="stats-team-toggle" data-action="toggle-stats-team" data-team="${esc(team)}" data-label="${esc(label)}" data-count="${count}" aria-expanded="false">＋ ${esc(label)} <small>${count}人</small></button>`
+      : esc(label);
+    return `<tr class="stats-team-heading" data-team="${esc(team)}"><th colspan="17">${heading}</th></tr>${playerRows(team)}`;
+  }).join("");
 }
 function renderHistory() {
   const entries = [
@@ -755,7 +761,7 @@ function renderSavedView() {
   }).join("") : '<p class="empty-feed">保存した試合はありません。</p>';
   matchFolders.forEach((folder) => {
     const target = $("folder-stats-" + folder.id);
-    if (target) renderStats(target.id, aggregateStatsGame(ordered.filter((item) => item.folderId === folder.id), false));
+    if (target) renderStats(target.id, aggregateStatsGame(ordered.filter((item) => item.folderId === folder.id), false), "all", true);
   });
   ordered.forEach((item) => { const target = $("folder-match-stats-" + item.id); if (target) renderStats(target.id, item.game); });
 }
@@ -769,7 +775,19 @@ function render() {
 document.addEventListener("click", (event) => {
   const b = event.target.closest("button[data-action]"); if (!b || b.disabled) return;
   const { action } = b.dataset;
-  if (action === "select") selectPlayer(b.dataset.team, b.dataset.playerId);
+  if (action === "toggle-stats-team") {
+    const heading = b.closest("tr.stats-team-heading"), team = b.dataset.team;
+    if (!heading) return;
+    const expanded = b.getAttribute("aria-expanded") !== "true";
+    let row = heading.nextElementSibling;
+    while (row && !row.classList.contains("stats-team-heading")) {
+      if (row.dataset.statsTeam === team) row.hidden = !expanded;
+      row = row.nextElementSibling;
+    }
+    b.setAttribute("aria-expanded", String(expanded));
+    b.innerHTML = `${expanded ? "－" : "＋"} ${esc(b.dataset.label)} <small>${esc(b.dataset.count)}人</small>`;
+  }
+  else if (action === "select") selectPlayer(b.dataset.team, b.dataset.playerId);
   else if (action === "play") recordPlay(b.dataset.play);
   else if (action === "undo-play") undoPlay();
   else if (action === "undo-rally") showConfirm("1ラリー戻す", "直前のラリーと得点を取り消しますか？", undoRally, "取り消す");
