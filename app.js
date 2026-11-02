@@ -592,19 +592,32 @@ function allPlays(g = game) {
   updateServeOutcomes(pending, null, false);
   return [...completed, ...pending];
 }
-function renderStats(target = "stats-body", g = game) {
-  const plays = allPlays(g), names = g.teamNames || { A: "Aチーム", B: "Bチーム" }, athletes = new Map();
-  Object.entries(g.teams || {}).forEach(([team, roster]) => roster.forEach((player) => athletes.set(player.id, { id: player.id, team, position: player.position, name: player.name })));
+function renderStatsScopeOptions() {
+  const select = $("stats-scope");
+  if (!select) return;
+  const previous = select.value || "all";
+  const lastSet = Math.max(game.setNo || 1, ...(game.setScores || []).map((set) => Number(set.set) || 1));
+  select.innerHTML = '<option value="all">試合全体</option>' + Array.from({ length: lastSet }, (_, index) => `<option value="${index + 1}">第${index + 1}セット</option>`).join("");
+  select.value = [...select.options].some((option) => option.value === previous) ? previous : "all";
+}
+function renderStats(target = "stats-body", g = game, scope = "all") {
+  const scopedGame = scope === "all" ? g : {
+    ...g,
+    rallies: (g.rallies || []).filter((rally) => Number(rally.set) === Number(scope)),
+    pending: Number(g.setNo) === Number(scope) ? (g.pending || []) : [],
+  };
+  const plays = allPlays(scopedGame), names = scopedGame.teamNames || { A: "Aチーム", B: "Bチーム" }, athletes = new Map();
+  Object.entries(scopedGame.teams || {}).forEach(([team, roster]) => roster.forEach((player) => athletes.set(player.id, { id: player.id, team, position: player.position, name: player.name })));
   plays.filter((p) => ["スパイク", "サーブ", "レシーブ", "ブロック"].includes(p.play)).forEach((p) => {
     const id = p.player_id || (p.team + "|" + p.position + "|" + p.player);
     if (!athletes.has(id)) athletes.set(id, { id, team: p.team, position: p.position, name: p.player });
   });
   const playedIds = new Set(plays.map((play) => play.player_id).filter(Boolean));
   const rows = [...athletes.values()].filter((athlete) => {
-    const active = g.activePlayerIds?.[athlete.team];
+    const active = scopedGame.activePlayerIds?.[athlete.team];
     return !Array.isArray(active) || active.includes(athlete.id) || playedIds.has(athlete.id);
   }).sort((a, b) => a.team.localeCompare(b.team) || POSITIONS.indexOf(a.position) - POSITIONS.indexOf(b.position));
-  $(target).innerHTML = rows.map((a) => {
+  const playerRows = (team) => rows.filter((athlete) => athlete.team === team).map((a) => {
     const mine = plays.filter((p) => p.player_id ? p.player_id === a.id : p.team === a.team && p.position === a.position && p.player === a.name);
     const attacks = mine.filter((p) => p.play === "スパイク" && ["得点", "継続", "ミス"].includes(p.outcome));
     const kills = attacks.filter((p) => p.outcome === "得点").length, errors = attacks.filter((p) => p.outcome === "ミス").length;
@@ -614,7 +627,7 @@ function renderStats(target = "stats-body", g = game) {
     const serveEffects = serves.filter((p) => p.outcome === "効果").length;
     const serveErrors = serves.filter((p) => p.outcome === "ミス").length;
     const serveRate = serves.length ? serves.reduce((n, p) => n + ({ エース: 100, 効果: 25, ミス: -25 }[p.outcome] || 0), 0) / serves.length : null;
-    const receptions = [...(g.rallies || []).flatMap((rally) => receptionAttempts(rally.plays || [], true)), ...receptionAttempts(g.pending || [], false)].filter((attempt) => {
+    const receptions = [...(scopedGame.rallies || []).flatMap((rally) => receptionAttempts(rally.plays || [], true)), ...receptionAttempts(scopedGame.pending || [], false)].filter((attempt) => {
       const p = attempt.play;
       return p.player_id ? p.player_id === a.id : p.team === a.team && p.position === a.position && p.player === a.name;
     });
@@ -625,13 +638,34 @@ function renderStats(target = "stats-body", g = game) {
     const pct = (n, d) => d ? `${(100 * n / d).toFixed(1)}%` : "—";
     return `<tr><td>${esc(names[a.team] || `${a.team}チーム`)}</td><td>${esc(a.position)} ${esc(a.name)}</td><td>${attacks.length}</td><td>${kills}</td><td>${errors}</td><td>${pct(kills, attacks.length)}</td><td>${pct(kills - errors, attacks.length)}</td><td>${allServes.length}</td><td>${aces}</td><td>${serveEffects}</td><td>${serveErrors}</td><td>${serveRate == null ? "—" : `${serveRate.toFixed(1)}%`}</td><td>${blocks}</td><td>${receptions.length}</td><td>${receptionSuccesses}</td><td>${receptionErrors}</td><td>${pct(receptionSuccesses, completedReceptions.length)}</td></tr>`;
   }).join("");
+  const teams = [...new Set([...Object.keys(names), ...rows.map((athlete) => athlete.team)])];
+  $(target).innerHTML = teams.map((team) => `<tr class="stats-team-heading" data-team="${esc(team)}"><th colspan="17">${esc(names[team] || `${team}チーム`)}</th></tr>${playerRows(team)}`).join("");
 }
 function renderHistory() {
-  const rows = [
-    ...game.rallies.map((r) => `<div class="history-row"><div class="history-meta">第${r.set}セット · Rally ${String(r.number).padStart(3, "0")} · ${esc(teamName(r.winner))}に得点</div><div>${(r.plays || []).map((p) => `${esc(teamName(p.team))} ${esc(p.position)} ${esc(p.player)} ${esc(p.play)}${p.outcome ? `（${esc(p.outcome)}）` : ""}`).join(" → ") || "プレー記録なし"}</div></div>`),
-    ...game.events.map((e) => `<div class="history-row"><div class="history-meta">第${e.set}セット · Rally ${String(e.rally).padStart(3, "0")} · ${esc(teamName(e.team))} · ${esc(e.type)}</div><div>${esc(e.detail)}</div></div>`),
-  ];
-  $("history-count").textContent = rows.length; $("history-list").innerHTML = rows.length ? rows.reverse().join("") : '<div class="history-row">まだ記録はありません。</div>';
+  const entries = [
+    ...game.rallies.map((rally, index) => ({ set: Number(rally.set) || 1, rally: Number(rally.number) || 0, kind: 1, index, html: `<div class="history-row"><div class="history-meta">第${rally.set}セット · Rally ${String(rally.number).padStart(3, "0")} · ${esc(teamName(rally.winner))}に得点</div><div>${(rally.plays || []).map((play) => `${esc(teamName(play.team))} ${esc(play.position)} ${esc(play.player)} ${esc(play.play)}${play.outcome ? `（${esc(play.outcome)}）` : ""}`).join(" → ") || "プレー記録なし"}</div></div>` })),
+    ...(game.events || []).map((item, index) => ({ set: Number(item.set) || 1, rally: Number(item.rally) || 0, kind: 0, index, html: `<div class="history-row"><div class="history-meta">第${item.set}セット · Rally ${String(item.rally).padStart(3, "0")} · ${esc(teamName(item.team))} · ${esc(item.type)}</div><div>${esc(item.detail || (item.type === "タイムアウト" ? "タイムアウトを記録" : item.type))}</div></div>` })),
+  ].sort((a, b) => a.set - b.set || a.rally - b.rally || a.kind - b.kind || a.index - b.index);
+  $("history-count").textContent = entries.length; $("history-list").innerHTML = entries.length ? entries.reverse().map((entry) => entry.html).join("") : '<div class="history-row">まだ記録はありません。</div>';
+}
+function pointDetails(rally) {
+  const plays = clone(rally.plays || []);
+  updateServeOutcomes(plays, rally.winner, true);
+  updateReceptionOutcomes(plays, true);
+  const last = plays.at(-1);
+  if (last?.play === "スパイク") last.outcome = last.team === rally.winner ? "得点" : "ミス";
+  if (last?.play === "ブロック") last.outcome = last.team === rally.winner ? "得点" : "継続";
+  markWinningSpike(plays, rally.winner);
+  markBlockedSpike(plays, rally.winner);
+  const actorName = (play) => `${play.position || ""} ${play.player || play.name || "選手"}`.trim();
+  const scorer = [...plays].reverse().find((play) => play.team === rally.winner && (play.outcome === "得点" || (play.play === "サーブ" && play.outcome === "エース")));
+  if (scorer) {
+    const method = scorer.play === "サーブ" ? "サービスエース" : scorer.play === "ブロック" ? "ブロック得点" : scorer.play === "スパイク" ? "スパイク得点" : `${scorer.play}で得点`;
+    return { player: `${teamName(scorer.team)} · ${actorName(scorer)}`, method };
+  }
+  const error = [...plays].reverse().find((play) => play.team !== rally.winner && (play.play === "ミス" || play.outcome === "ミス"));
+  if (error) return { player: `${teamName(error.team)} · ${actorName(error)}`, method: `相手の${error.play}ミス` };
+  return { player: "記録なし", method: "得点ボタンで記録" };
 }
 function renderSetHistory() {
   const section = $("set-history-section"), list = $("set-history-list");
@@ -644,10 +678,10 @@ function renderSetHistory() {
     const rallies = game.rallies.filter((rally) => rally.set === set.set).sort((x, y) => x.number - y.number);
     const rows = rallies.map((rally) => {
       if (rally.winner === "A") a += 1; else if (rally.winner === "B") b += 1;
-      const sequence = (rally.plays || []).map((play) => `${teamName(play.team)} ${play.position || ""} ${play.player || play.name || "選手"}の${play.play}${play.outcome ? `（${play.outcome}）` : ""}`).join(" → ");
-      return `<div class="set-point-row"><strong>Rally ${String(rally.number).padStart(3, "0")} · ${a} - ${b}</strong><span>${esc(teamName(rally.winner))}に得点</span><small>${sequence ? esc(sequence) : "プレー記録なし（得点ボタンで記録）"}</small></div>`;
+      const point = pointDetails(rally);
+      return `<div class="set-point-row"><strong>${a} - ${b}</strong><span>${esc(point.player)}</span><small>${esc(point.method)}</small></div>`;
     }).join("");
-    return `<section class="set-history-card"><h3>第${set.set}セット · ${set.A} - ${set.B}</h3>${rows || '<p class="empty-feed">このセットのラリー記録はありません。</p>'}</section>`;
+    return `<section class="set-history-card"><h3>第${set.set}セット · ${esc(teamName("A"))} ${set.A} - ${set.B} ${esc(teamName("B"))}</h3><div class="set-point-heading"><span>得点推移</span><span>得点選手・相手のミス／得点方法</span></div>${rows || '<p class="empty-feed">このセットのラリー記録はありません。</p>'}</section>`;
   }).join("") : '<p class="empty-feed">セットを終了すると、得点履歴がここに表示されます。</p>';
   if (openSetHistoryAfterUpdate && completed.length) { section.open = true; openSetHistoryAfterUpdate = false; }
 }
@@ -726,7 +760,9 @@ function renderSavedView() {
   ordered.forEach((item) => { const target = $("folder-match-stats-" + item.id); if (target) renderStats(target.id, item.game); });
 }
 function render() {
-  renderLineups(); renderRosterEditor("home-roster-editor"); renderTeamTemplates("home-team-templates"); renderTeamLibrary(); renderRally(); renderStats(); renderHistory(); renderSetHistory(); renderArchive(); renderHome(); renderSavedView();
+  renderLineups(); renderRosterEditor("home-roster-editor"); renderTeamTemplates("home-team-templates"); renderTeamLibrary(); renderRally();
+  renderStatsScopeOptions(); renderStats("stats-body", game, $("stats-scope")?.value || "all");
+  renderHistory(); renderSetHistory(); renderArchive(); renderHome(); renderSavedView();
   $("network-label").textContent = offlineReady ? (navigator.onLine ? "オフライン利用の準備OK" : "オフライン · 端末に保存") : "オフライン利用を準備中";
 }
 
@@ -867,6 +903,7 @@ document.addEventListener("submit", (event) => {
 });
 
 document.addEventListener("change", (event) => {
+  if (event.target.id === "stats-scope") { renderStats("stats-body", game, event.target.value); return; }
   if (event.target.matches('[name="category"]')) { updateCustomCategoryField(event.target.form); return; }
   const select = event.target.closest("[data-folder-match]");
   if (!select) return;
