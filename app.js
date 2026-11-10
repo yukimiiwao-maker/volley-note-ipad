@@ -226,17 +226,25 @@ function markWinningSpike(plays, winner) {
 }
 function markBlockedSpike(plays, winner) {
   const touches = new Set(["レシーブ", "トス", "スパイク", "ブロック", "ミス"]);
-  // Each spike belongs to the attacker until the opponents touch the ball.
-  // When that first opponent contact is a winning block, charge the spike as
-  // an attacker error. Scanning every spike also handles rallies with multiple
-  // attacks instead of returning after an unrelated later attack.
+  // A block is a spike error only when it directly ends the rally. If the
+  // attacking side gets a touch after the block, the spike was kept in play.
+  // When that final touch is a reception error, credit the block point while
+  // leaving the spike out of the attacker's error count.
   plays.forEach((spike, index) => {
     if (spike.play !== "スパイク" || spike.team === winner) return;
     const firstOpponentTouch = plays.slice(index + 1).find(
       (play) => play.team !== spike.team && touches.has(play.play),
     );
     if (firstOpponentTouch?.play === "ブロック" && firstOpponentTouch.team === winner) {
-      spike.outcome = "ミス";
+      const blockIndex = plays.indexOf(firstOpponentTouch);
+      const afterBlock = plays.slice(blockIndex + 1).filter((play) => touches.has(play.play));
+      const attackerTouch = afterBlock.find((play) => play.team === spike.team);
+      if (attackerTouch) {
+        spike.outcome = "継続";
+        if (attackerTouch === plays.at(-1)) firstOpponentTouch.outcome = "得点";
+      } else if (firstOpponentTouch === plays.at(-1)) {
+        spike.outcome = "ミス";
+      }
     }
   });
 }
