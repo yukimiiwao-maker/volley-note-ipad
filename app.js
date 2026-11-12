@@ -182,9 +182,9 @@ function updateServeOutcomes(plays, winner, final = true) {
     // do not classify this serve. This covers both a setter's direct reception
     // and a pass followed by the setter's second contact.
     if (opponentTouches.some((play) => play.position === "S")) { delete serve.outcome; return; }
-    // A serve that wins the rally after the receiving team touches it is still
-    // an ace (for example: serve → reception → point for the serving team).
-    if (final && winner === serve.team) { serve.outcome = "エース"; return; }
+    // Only an immediate point from the reception is an ace; if the rally continues,
+    // a later serving-team point does not turn the serve into an ace.
+    if (final && winner === serve.team && (!firstTouch || later.filter((play) => touchActions.includes(play.play)).at(-1) === firstTouch)) { serve.outcome = "エース"; return; }
     if (firstTouch) { serve.outcome = "効果"; return; }
     if (!final) { delete serve.outcome; return; }
     if (later.some((play) => play.team === serve.team && play.play === "ミス")) { serve.outcome = "ミス"; return; }
@@ -656,7 +656,7 @@ function renderStats(target = "stats-body", g = game, scope = "all", compactTeam
 }
 function renderHistory() {
   const entries = [
-    ...game.rallies.map((rally, index) => ({ set: Number(rally.set) || 1, rally: Number(rally.number) || 0, kind: 1, index, html: `<div class="history-row"><div class="history-meta">第${rally.set}セット · Rally ${String(rally.number).padStart(3, "0")} · ${esc(teamName(rally.winner))}に得点</div><div>${(rally.plays || []).map((play) => `${esc(teamName(play.team))} ${esc(play.position)} ${esc(play.player)} ${esc(play.play)}${play.outcome ? `（${esc(play.outcome)}）` : ""}`).join(" → ") || "プレー記録なし"}</div></div>` })),
+    ...game.rallies.map((rally, index) => ({ set: Number(rally.set) || 1, rally: Number(rally.number) || 0, kind: 1, index, html: `<div class="history-row"><div class="history-meta">第${rally.set}セット · Rally ${String(rally.number).padStart(3, "0")} · ${esc(teamName(rally.winner))}に得点</div><div>${(()=>{const plays=clone(rally.plays||[]);updateServeOutcomes(plays,rally.winner,true);return plays;})().map((play) => `${esc(teamName(play.team))} ${esc(play.position)} ${esc(play.player)} ${esc(play.play)}${play.outcome ? `（${esc(play.outcome)}）` : ""}`).join(" → ") || "プレー記録なし"}</div></div>` })),
     ...(game.events || []).map((item, index) => ({ set: Number(item.set) || 1, rally: Number(item.rally) || 0, kind: 0, index, html: `<div class="history-row"><div class="history-meta">第${item.set}セット · Rally ${String(item.rally).padStart(3, "0")} · ${esc(teamName(item.team))} · ${esc(item.type)}</div><div>${esc(item.detail || (item.type === "タイムアウト" ? "タイムアウトを記録" : item.type))}</div></div>` })),
   ].sort((a, b) => a.set - b.set || a.rally - b.rally || a.kind - b.kind || a.index - b.index);
   $("history-count").textContent = entries.length; $("history-list").innerHTML = entries.length ? entries.reverse().map((entry) => entry.html).join("") : '<div class="history-row">まだ記録はありません。</div>';
