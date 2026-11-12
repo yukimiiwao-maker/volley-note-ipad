@@ -240,7 +240,7 @@ function markBlockedSpike(plays, winner) {
       if (afterBlock.length) {
         spike.outcome = "継続";
         const lastTouch = afterBlock.at(-1);
-        if (lastTouch.team === spike.team) firstOpponentTouch.outcome = "得点"; else delete firstOpponentTouch.outcome;
+        if (afterBlock.some((play) => play.team === firstOpponentTouch.team)) delete firstOpponentTouch.outcome; else if (lastTouch.team === spike.team) firstOpponentTouch.outcome = "得点"; else delete firstOpponentTouch.outcome;
       } else if (firstOpponentTouch === plays.at(-1)) {
         spike.outcome = "ミス";
       }
